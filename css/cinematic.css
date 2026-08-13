@@ -395,3 +395,46 @@
     }
 
 }
+
+/* =========================================================
+   ORIGINAL GARDEN MOBILE COMPATIBILITY
+========================================================= */
+
+@media (max-width: 700px) {
+
+    #content {
+        width: 100% !important;
+        height: auto !important;
+        margin-left: 0 !important;
+    }
+
+    #loveHeart {
+        width: 100% !important;
+        height: 500px !important;
+        float: none !important;
+    }
+
+    #code {
+        width: 92% !important;
+        height: auto !important;
+        float: none !important;
+        margin: 20px auto !important;
+        font-size: 10px !important;
+        overflow: hidden;
+    }
+
+    #words {
+        width: 90% !important;
+        font-size: 18px !important;
+    }
+
+    #loveu {
+        font-size: 18px !important;
+    }
+
+    #canvas {
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+}
