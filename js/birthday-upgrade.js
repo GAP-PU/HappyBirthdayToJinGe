@@ -476,6 +476,14 @@
 
                 </p>
 
+                <button
+    class="bx-button"
+    id="bxReveal">
+
+    One Last Surprise ❤️
+
+</button>
+
                 <div class="bx-secret">
 
                     <strong>
@@ -853,7 +861,92 @@
         }
     );
 
+/* =========================================================
+   ORIGINAL TEMPLATE REVEAL
+========================================================= */
 
+function revealOriginalBirthday() {
+
+    /* -----------------------------------------
+       Start original heart
+    ----------------------------------------- */
+
+    if (typeof startHeartAnimation === "function") {
+
+        startHeartAnimation();
+
+    }
+
+
+    /* -----------------------------------------
+       Start fireworks
+    ----------------------------------------- */
+
+    setTimeout(function () {
+
+        if (typeof window.startFireworks === "function") {
+
+            window.startFireworks();
+
+        }
+
+    }, 1500);
+
+
+    /* -----------------------------------------
+       Fade cinematic layer
+    ----------------------------------------- */
+
+    app.style.transition =
+        "opacity 2s ease";
+
+    app.style.opacity =
+        "0";
+
+
+    setTimeout(function () {
+
+        app.style.display =
+            "none";
+
+        document.body.style.overflow =
+            "auto";
+
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth"
+        });
+
+    }, 2200);
+
+}
+
+/* =========================================================
+   FINAL REVEAL BUTTON
+========================================================= */
+
+const revealButton =
+    document.getElementById("bxReveal");
+
+if (revealButton) {
+
+    revealButton.addEventListener(
+        "click",
+        function () {
+
+            launchFinalCelebration();
+
+            setTimeout(function () {
+
+                revealOriginalBirthday();
+
+            }, 1000);
+
+        }
+    );
+
+}
+   
     /* =====================================================
        FINAL VIDEO
     ===================================================== */
@@ -864,13 +957,34 @@
         );
 
     finalVideo.addEventListener(
-        "ended",
-        function(){
+    "ended",
+    function () {
 
-            launchFinalCelebration();
+        launchFinalCelebration();
 
-        }
-    );
+        setTimeout(function () {
+
+            const reveal =
+                document.getElementById(
+                    "bxReveal"
+                );
+
+            if (reveal) {
+
+                reveal.innerHTML =
+                    "The Real Surprise ❤️";
+
+                reveal.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center"
+                });
+
+            }
+
+        }, 1200);
+
+    }
+);
 
 
     /* =====================================================
