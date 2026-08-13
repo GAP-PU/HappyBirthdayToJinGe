@@ -269,5 +269,21 @@ canvas.addEventListener( 'mouseup', function( e ) {
 });
 
 // once the window loads, we are ready for some fireworks!
-window.onload = loop;
+/* =========================================================
+   FIREWORKS CONTROL
+   Fireworks will start only when cinematic reveal happens.
+========================================================= */
+
+var fireworksStarted = false;
+
+window.startFireworks = function () {
+
+    if (fireworksStarted) {
+        return;
+    }
+
+    fireworksStarted = true;
+
+    loop();
+};
 
