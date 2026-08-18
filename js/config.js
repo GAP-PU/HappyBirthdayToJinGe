@@ -8,7 +8,7 @@ const BIRTHDAY_CONFIG = {
        BASIC
     =============================== */
 
-    name: "HER NAME",
+    name: "SAHELI URF MISS LI🧿🫀",
 
     pageTitle: "Something Special For You ❤️",
 
