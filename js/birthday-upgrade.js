@@ -1,15 +1,16 @@
 /* =========================================================
-   CINEMATIC BIRTHDAY EXPERIENCE
-   Stable Scene Engine
-   Compatible with:
+   ❤️ CINEMATIC BIRTHDAY EXPERIENCE
+   FINAL AUTO-SCENE + FAIL-SAFE VERSION
+
+   Compatible with existing:
    - config.js
    - cinematic.css
-   - existing garden.js
-   - existing fireworks.js
-   - existing functions.js
+   - garden.js
+   - fireworks.js
+   - original index.html
 
    IMPORTANT:
-   Replace the COMPLETE old birthday-upgrade.js
+   Replace the COMPLETE birthday-upgrade.js
    with this file.
 ========================================================= */
 
@@ -22,88 +23,90 @@
        CONFIG
     ===================================================== */
 
-    var CONFIG = null;
-
-    try {
-
-        if (typeof BIRTHDAY_CONFIG !== "undefined") {
-            CONFIG = BIRTHDAY_CONFIG;
-        }
-
-    } catch (e) {}
+    const C =
+        (typeof BIRTHDAY_CONFIG !== "undefined")
+            ? BIRTHDAY_CONFIG
+            : window.BIRTHDAY_CONFIG;
 
 
-    if (!CONFIG) {
-
-        try {
-            CONFIG = window.BIRTHDAY_CONFIG;
-        } catch (e) {}
-
-    }
-
-
-    if (!CONFIG) {
+    if (!C) {
 
         console.error(
-            "Birthday Experience: BIRTHDAY_CONFIG not found."
+            "❌ BIRTHDAY_CONFIG not found."
         );
 
         return;
+
     }
 
 
     /* =====================================================
-       STATE
+       GLOBAL STATE
     ===================================================== */
 
-    var state = {
+    let experience = null;
 
-        started: false,
+    let music = null;
 
-        finished: false,
+    let currentScene = null;
 
-        currentScene: null,
+    let currentVideo = null;
 
-        musicStarted: false,
+    let started = false;
 
-        videoPlaying: false,
+    let finished = false;
 
-        finalRevealStarted: false,
+    let transitionLocked = false;
 
-        locked: true
+    let finalCelebrationStarted = false;
+
+    let activeTimer = null;
+
+    let sceneIndex = 0;
+
+
+    /* =====================================================
+       TIMINGS
+    ===================================================== */
+
+    const TIMING = {
+
+        hero: 5000,
+
+        story: 6500,
+
+        photos: 6000,
+
+        interlude: 4000,
+
+        letter: 8500,
+
+        final: 9000,
+
+        transition: 900,
+
+        videoLoadTimeout: 8000,
+
+        finalRevealDelay: 8500
 
     };
 
 
-    var root = null;
-
-    var music = null;
-
-
     /* =====================================================
-       HELPERS
+       UTILITY
     ===================================================== */
 
-    function exists(value) {
+    function hasPath(value) {
 
         return (
             typeof value === "string" &&
-            value.trim() !== ""
+            value.trim().length > 0
         );
 
     }
 
 
-    function safeArray(value) {
-
-        return Array.isArray(value)
-            ? value
-            : [];
-
-    }
-
-
-    function esc(value) {
+    function escapeHTML(value) {
 
         if (
             value === undefined ||
@@ -125,6 +128,41 @@
     }
 
 
+    function safeRun(name, callback) {
+
+        try {
+
+            callback();
+
+        } catch (error) {
+
+            console.error(
+                "Birthday module error [" +
+                name +
+                "]:",
+                error
+            );
+
+        }
+
+    }
+
+
+    function clearActiveTimer() {
+
+        if (activeTimer) {
+
+            clearTimeout(
+                activeTimer
+            );
+
+            activeTimer = null;
+
+        }
+
+    }
+
+
     function wait(ms) {
 
         return new Promise(
@@ -142,17 +180,21 @@
 
 
     /* =====================================================
-       CSS SAFETY LAYER
-       
-       This is intentionally injected so the JS does not
-       depend on one particular version of cinematic.css.
+       CSS COMPATIBILITY LAYER
+
+       Existing cinematic.css uses bx-scene-style
+       animation in parts, while current JS creates
+       bx-section / bx-screen.
+
+       This bridge makes the existing design work
+       without replacing cinematic.css.
     ===================================================== */
 
-    function injectSafetyCSS() {
+    function installSceneEngineCSS() {
 
         if (
             document.getElementById(
-                "birthdaySafetyCSS"
+                "birthdayFinalEngineCSS"
             )
         ) {
 
@@ -161,389 +203,316 @@
         }
 
 
-        var style =
-            document.createElement("style");
+        const style =
+            document.createElement(
+                "style"
+            );
 
 
         style.id =
-            "birthdaySafetyCSS";
+            "birthdayFinalEngineCSS";
 
 
         style.textContent = `
 
+            /* =============================================
+               MAIN EXPERIENCE
+            ============================================= */
+
             #birthdayExperience {
+
                 position: fixed !important;
+
                 inset: 0 !important;
+
                 width: 100vw !important;
+
                 height: 100vh !important;
-                z-index: 99990 !important;
+
                 overflow: hidden !important;
-                background: #050308;
-                color: #fff;
+
+                z-index: 99999 !important;
+
             }
 
-            #birthdayExperience .bx-scene {
+
+            /* =============================================
+               ORIGINAL PAGE STAYS BEHIND
+            ============================================= */
+
+            #birthdayExperience
+            .bx-screen,
+
+            #birthdayExperience
+            .bx-section {
+
                 position: absolute !important;
+
                 inset: 0 !important;
+
                 width: 100% !important;
+
                 height: 100% !important;
+
+                min-height: 100vh !important;
+
+                min-height: 100dvh !important;
+
+                display: flex !important;
+
+                align-items: center !important;
+
+                justify-content: center !important;
+
+                overflow-y: auto !important;
+
+                overflow-x: hidden !important;
+
+                padding:
+                    40px 22px !important;
+
                 opacity: 0 !important;
+
                 visibility: hidden !important;
+
                 pointer-events: none !important;
-                transform: scale(1.02);
+
+                transform:
+                    scale(1.045)
+                    translateY(24px) !important;
+
                 transition:
                     opacity 900ms ease,
-                    transform 1200ms ease,
-                    visibility 900ms ease;
-                overflow-y: auto !important;
-                overflow-x: hidden !important;
-                -webkit-overflow-scrolling: touch;
+                    transform 1200ms
+                        cubic-bezier(.22,.61,.36,1),
+                    visibility 900ms ease !important;
+
+                z-index: 1 !important;
+
             }
 
-            #birthdayExperience .bx-scene.active {
+
+            /* =============================================
+               ACTIVE SCENE
+            ============================================= */
+
+            #birthdayExperience
+            .bx-screen.active,
+
+            #birthdayExperience
+            .bx-section.active {
+
                 opacity: 1 !important;
+
                 visibility: visible !important;
+
                 pointer-events: auto !important;
-                transform: scale(1);
-                z-index: 5;
+
+                transform:
+                    scale(1)
+                    translateY(0) !important;
+
+                z-index: 10 !important;
+
             }
 
-            #birthdayExperience .bx-scene.exit {
+
+            /* =============================================
+               EXIT SCENE
+            ============================================= */
+
+            #birthdayExperience
+            .bx-screen.exit,
+
+            #birthdayExperience
+            .bx-section.exit {
+
                 opacity: 0 !important;
+
                 visibility: hidden !important;
+
                 pointer-events: none !important;
-                transform: scale(.98);
+
+                transform:
+                    scale(.97)
+                    translateY(-22px) !important;
+
+                z-index: 2 !important;
+
             }
 
-            #birthdayExperience .bx-stage {
-                min-height: 100%;
-                min-height: 100dvh;
-                width: 100%;
-                box-sizing: border-box;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding:
-                    60px
-                    24px;
+
+            /* =============================================
+               CONTENT
+            ============================================= */
+
+            #birthdayExperience
+            .bx-center,
+
+            #birthdayExperience
+            .bx-container {
+
+                position: relative !important;
+
+                width:
+                    min(900px, 94vw) !important;
+
+                margin: auto !important;
+
+                z-index: 5 !important;
+
             }
 
-            #birthdayExperience .bx-inner {
-                width: min(1000px, 92vw);
-                margin: 0 auto;
-                text-align: center;
-            }
 
-            #birthdayExperience .bx-kicker {
-                font-size: 10px;
-                letter-spacing: 5px;
-                text-transform: uppercase;
-                opacity: .65;
-                margin-bottom: 24px;
-            }
+            /* =============================================
+               VIDEO
+            ============================================= */
 
-            #birthdayExperience h1 {
-                font-size:
-                    clamp(
-                        45px,
-                        9vw,
-                        105px
-                    );
-                line-height: .95;
-                margin: 0;
-                font-weight: 700;
-                letter-spacing: -3px;
-            }
+            #birthdayExperience
+            .bx-video {
 
-            #birthdayExperience h1 span {
-                color: #ff75bd;
-            }
+                width:
+                    min(900px, 94vw) !important;
 
-            #birthdayExperience h2 {
-                font-size:
-                    clamp(
-                        32px,
-                        6vw,
-                        70px
-                    );
-                line-height: 1;
-                margin: 0 0 25px;
-            }
-
-            #birthdayExperience p {
-                line-height: 1.9;
-            }
-
-            #birthdayExperience .bx-button {
-                appearance: none;
-                border: 1px solid rgba(255,255,255,.35);
-                background:
-                    linear-gradient(
-                        135deg,
-                        rgba(255,255,255,.14),
-                        rgba(255,95,175,.18)
-                    );
-                color: white;
-                padding: 16px 28px;
-                border-radius: 999px;
-                cursor: pointer;
-                letter-spacing: 2px;
-                font-size: 11px;
-                transition:
-                    transform .25s ease,
-                    background .25s ease;
-                margin-top: 28px;
-            }
-
-            #birthdayExperience .bx-button:hover {
-                transform: translateY(-3px);
-                background:
-                    linear-gradient(
-                        135deg,
-                        rgba(255,255,255,.22),
-                        rgba(255,95,175,.28)
-                    );
-            }
-
-            #birthdayExperience .bx-button:active {
-                transform: scale(.97);
-            }
-
-            #birthdayExperience .bx-text {
-                max-width: 700px;
-                margin: 0 auto;
-                color: rgba(255,255,255,.72);
-                font-size: 16px;
-            }
-
-            #birthdayExperience .bx-text p {
-                margin: 0 0 20px;
-            }
-
-            #birthdayExperience .bx-highlight {
-                color: #ff8ac8;
-                font-size: 19px;
-            }
-
-            #birthdayExperience .bx-gallery {
-                width: min(1000px, 94vw);
-                margin: 40px auto 0;
-                display: grid;
-                grid-template-columns:
-                    repeat(
-                        auto-fit,
-                        minmax(180px, 1fr)
-                    );
-                gap: 14px;
-            }
-
-            #birthdayExperience .bx-photo {
-                aspect-ratio: 1 / 1;
-                overflow: hidden;
-                border-radius: 18px;
-                cursor: pointer;
-                background: #111;
-                border:
-                    1px solid
-                    rgba(255,255,255,.1);
-            }
-
-            #birthdayExperience .bx-photo img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-                display: block;
-                transition:
-                    transform .6s ease;
-            }
-
-            #birthdayExperience .bx-photo:hover img {
-                transform: scale(1.06);
-            }
-
-            #birthdayExperience .bx-video-wrap {
-                width: min(900px, 94vw);
-                margin: 35px auto 0;
-            }
-
-            #birthdayExperience video {
-                display: block;
-                width: 100%;
-                max-height: 72vh;
-                border-radius: 18px;
-                background: #000;
-                box-shadow:
-                    0 20px 70px
-                    rgba(0,0,0,.45);
-            }
-
-            #birthdayExperience .bx-video-note {
-                margin-top: 18px;
-                color: rgba(255,255,255,.45);
-                font-size: 10px;
-                letter-spacing: 2px;
-                text-transform: uppercase;
-            }
-
-            #birthdayExperience .bx-letter {
-                width: min(720px, 90vw);
-                margin: 0 auto;
-                text-align: left;
-                color: rgba(255,255,255,.76);
-                font-size: 17px;
-            }
-
-            #birthdayExperience .bx-letter p {
                 margin:
-                    0 0
-                    24px;
+                    30px auto 0 !important;
+
+                position: relative !important;
+
+                z-index: 20 !important;
+
             }
 
-            #birthdayExperience .bx-letter .special {
-                color: #ff8ac8;
+
+            #birthdayExperience
+            .bx-video video {
+
+                display: block !important;
+
+                width: 100% !important;
+
+                max-height:
+                    70vh !important;
+
+                max-height:
+                    70dvh !important;
+
+                object-fit: contain !important;
+
+                border-radius: 18px !important;
+
+                background: #000 !important;
+
             }
 
-            #birthdayExperience .bx-final-message {
-                max-width: 650px;
-                margin: 35px auto;
-                color: rgba(255,255,255,.72);
-                font-size: 17px;
+
+            /* =============================================
+               PHOTOS
+            ============================================= */
+
+            #birthdayExperience
+            .bx-gallery {
+
+                position: relative !important;
+
+                z-index: 20 !important;
+
+                width: 100% !important;
+
             }
 
-            #birthdayExperience .bx-secret {
-                width: min(600px, 88vw);
-                margin: 45px auto 0;
-                padding: 30px;
-                border:
-                    1px solid
-                    rgba(255,255,255,.1);
-                border-radius: 22px;
-                background:
-                    rgba(255,255,255,.035);
+
+            #birthdayExperience
+            .bx-photo {
+
+                cursor: pointer !important;
+
+                position: relative !important;
+
+                z-index: 25 !important;
+
             }
 
-            #birthdayExperience .bx-secret strong {
-                color: #ff73bc;
-                letter-spacing: 3px;
+
+            /* =============================================
+               LIGHTBOX
+            ============================================= */
+
+            #birthdayExperience
+            .bx-lightbox {
+
+                z-index: 100000 !important;
+
             }
 
-            #birthdayExperience .bx-secret p {
-                color: rgba(255,255,255,.7);
+
+            /* =============================================
+               MUSIC
+            ============================================= */
+
+            #birthdayExperience
+            .bx-music {
+
+                z-index: 100050 !important;
+
             }
 
-            #birthdayExperience .bx-heart {
-                color: #ff6bb8;
-                font-size: 32px;
-                margin: 15px 0;
-                animation:
-                    birthdayPulse
-                    1.5s
-                    ease-in-out
-                    infinite;
+
+            /* =============================================
+               PROGRESS
+            ============================================= */
+
+            #birthdayExperience
+            .bx-progress {
+
+                z-index: 100060 !important;
+
             }
 
-            #birthdayExperience .bx-secret small {
-                color: rgba(255,255,255,.42);
-                line-height: 1.8;
+
+            /* =============================================
+               START BUTTON
+            ============================================= */
+
+            #birthdayExperience
+            #bxStart {
+
+                position: relative !important;
+
+                z-index: 100 !important;
+
+                cursor: pointer !important;
+
             }
 
-            #birthdayExperience .bx-music {
-                position: fixed;
-                right: 20px;
-                top: 20px;
-                z-index: 100;
-                width: 42px;
-                height: 42px;
-                border-radius: 50%;
-                border:
-                    1px solid
-                    rgba(255,255,255,.18);
-                background:
-                    rgba(255,255,255,.07);
-                color: white;
-                cursor: pointer;
-            }
 
-            #birthdayExperience .bx-progress {
-                position: fixed;
-                top: 0;
-                left: 0;
-                height: 2px;
-                width: 0;
-                z-index: 110;
-                background: #ff72bb;
-                transition: width .3s ease;
-            }
+            /* =============================================
+               MOBILE
+            ============================================= */
 
-            #birthdayExperience .bx-lightbox {
-                position: fixed;
-                inset: 0;
-                z-index: 200;
-                background:
-                    rgba(0,0,0,.94);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 30px;
-                opacity: 0;
-                visibility: hidden;
-                pointer-events: none;
-                transition: opacity .3s ease;
-            }
+            @media (max-width: 600px) {
 
-            #birthdayExperience .bx-lightbox.show {
-                opacity: 1;
-                visibility: visible;
-                pointer-events: auto;
-            }
+                #birthdayExperience
+                .bx-screen,
 
-            #birthdayExperience .bx-lightbox img {
-                max-width: 94vw;
-                max-height: 90vh;
-                object-fit: contain;
-                border-radius: 12px;
-            }
+                #birthdayExperience
+                .bx-section {
 
-            #birthdayExperience .bx-close {
-                position: absolute;
-                right: 20px;
-                top: 20px;
-                width: 44px;
-                height: 44px;
-                border: 0;
-                border-radius: 50%;
-                background:
-                    rgba(255,255,255,.1);
-                color: white;
-                font-size: 28px;
-                cursor: pointer;
-            }
-
-            @keyframes birthdayPulse {
-                0%,100% {
-                    transform: scale(1);
-                }
-
-                50% {
-                    transform: scale(1.18);
-                }
-            }
-
-            @media(max-width:600px) {
-
-                #birthdayExperience .bx-stage {
                     padding:
-                        50px
-                        18px;
+                        30px 16px !important;
+
                 }
 
-                #birthdayExperience .bx-letter {
-                    font-size: 15px;
-                }
 
-                #birthdayExperience .bx-gallery {
-                    grid-template-columns:
-                        repeat(2,1fr);
+                #birthdayExperience
+                .bx-video video {
+
+                    max-height:
+                        62vh !important;
+
+                    max-height:
+                        62dvh !important;
+
                 }
 
             }
@@ -559,12 +528,12 @@
 
 
     /* =====================================================
-       CREATE ROOT
+       CREATE EXPERIENCE
     ===================================================== */
 
-    function createRoot() {
+    function createExperience() {
 
-        var old =
+        const old =
             document.getElementById(
                 "birthdayExperience"
             );
@@ -577,189 +546,167 @@
         }
 
 
-        root =
-            document.createElement("div");
-
-
-        root.id =
-            "birthdayExperience";
-
-
-        root.setAttribute(
-            "aria-label",
-            "Birthday surprise"
-        );
-
-
-        document.body.appendChild(
-            root
-        );
-
-    }
-
-
-    /* =====================================================
-       SCENE HTML
-    ===================================================== */
-
-    function scene(
-        id,
-        html
-    ) {
-
-        var el =
+        experience =
             document.createElement(
-                "section"
+                "div"
             );
 
 
-        el.className =
-            "bx-scene";
+        experience.id =
+            "birthdayExperience";
 
 
-        el.id =
-            id;
+        experience.innerHTML = `
+
+            <div class="bx-background">
+
+                <div class="bx-orb one"></div>
+
+                <div class="bx-orb two"></div>
+
+            </div>
 
 
-        el.innerHTML =
-            html;
+            <div class="bx-noise"></div>
 
 
-        root.appendChild(
-            el
-        );
+            <div
+                class="bx-progress"
+                id="bxProgress">
+            </div>
 
 
-        return el;
+            <!-- MUSIC -->
 
-    }
+            <button
+                class="bx-music"
+                id="bxMusic"
+                aria-label="Music">
+
+                🔇
+
+            </button>
 
 
-    /* =====================================================
-       BUILD INTRO
-    ===================================================== */
+            <!-- =========================================
+                 INTRO
+            ========================================== -->
 
-    function buildIntro() {
+            <section
+                class="bx-screen"
+                data-section="intro">
 
-        return scene(
-            "bxSceneIntro",
-            `
+                <div class="bx-center">
 
-            <div class="bx-stage">
+                    <div class="bx-label">
 
-                <div class="bx-inner">
-
-                    <div class="bx-kicker">
                         A LITTLE SOMETHING FOR YOU
+
                     </div>
 
-                    <h1>
+
+                    <h1
+                        class="bx-intro-title">
 
                         Hey,
 
-                        <br>
+                        <span id="bxIntroName">
 
-                        <span>
-                            ${esc(CONFIG.name)}
+                            ${escapeHTML(C.name)}
+
                         </span>
 
                     </h1>
 
-                    <p class="bx-text"
-                       style="margin-top:30px;">
 
-                        ${esc(
-                            CONFIG.introSmallText ||
+                    <p
+                        class="bx-subtitle">
+
+                        ${escapeHTML(
+                            C.introSmallText ||
                             "I could have just wished you normally..."
                         )}
 
                         <br><br>
 
-                        ${esc(
-                            CONFIG.introText ||
-                            "But you're not exactly a normal person to me."
-                        )}
+                        <span>
+
+                            ${escapeHTML(
+                                C.introText ||
+                                "But you're not exactly a normal person to me."
+                            )}
+
+                        </span>
 
                     </p>
 
+
                     <button
                         class="bx-button"
-                        id="bxStartButton">
+                        id="bxStart">
 
-                        OPEN YOUR SURPRISE ✦
+                        Open Your Surprise ✦
 
                     </button>
 
-                    <div
+
+                    <p
                         style="
-                        margin-top:24px;
+                        color:#665b68;
                         font-size:10px;
-                        letter-spacing:3px;
-                        opacity:.4;
+                        letter-spacing:2px;
+                        margin-top:25px;
                         ">
 
-                        🔊 TURN YOUR VOLUME UP
+                        🔊 Turn your volume up
 
-                    </div>
+                    </p>
 
                 </div>
 
-            </div>
-
-            `
-        );
-
-    }
+            </section>
 
 
-    /* =====================================================
-       BUILD HERO
-    ===================================================== */
+            <!-- =========================================
+                 HERO
+            ========================================== -->
 
-    function buildHero() {
+            <section
+                class="bx-section"
+                data-section="hero">
 
-        return scene(
-            "bxSceneHero",
-            `
+                <div class="bx-center">
 
-            <div class="bx-stage">
+                    <div class="bx-section-label">
 
-                <div class="bx-inner">
-
-                    <div class="bx-kicker">
                         TODAY IS DIFFERENT
+
                     </div>
 
-                    <h1>
+
+                    <h1
+                        class="bx-heading">
 
                         Happy
-
-                        <br>
-
-                        <span>
-                            Birthday
-                        </span>
+                        <i>Birthday</i>
 
                     </h1>
 
-                    <div
-                        style="
-                        margin-top:35px;
-                        font-size:
-                        clamp(25px,5vw,55px);
-                        ">
 
-                        ${esc(CONFIG.name)}
+                    <div
+                        class="bx-hero-name">
+
+                        ${escapeHTML(C.name)}
+
                         ❤️
 
                     </div>
 
-                    <p
-                        class="bx-text"
-                        style="margin-top:30px;">
 
-                        Some people enter your life
-                        normally...
+                    <p
+                        class="bx-subtitle">
+
+                        Some people enter your life normally...
 
                         <br><br>
 
@@ -771,147 +718,78 @@
 
                 </div>
 
-            </div>
-
-            `
-        );
-
-    }
+            </section>
 
 
-    /* =====================================================
-       BUILD STORY
-    ===================================================== */
+            <!-- =========================================
+                 STORY
+            ========================================== -->
 
-    function buildStory() {
+            <section
+                class="bx-section"
+                data-section="story">
 
-        var lines =
-            safeArray(
-                CONFIG.storyLines
-            );
+                <div class="bx-container">
 
+                    <div
+                        class="bx-section-label">
 
-        var html =
-            lines.map(
-                function (line, index) {
-
-                    return `
-                        <p
-                            class="${
-                                index ===
-                                lines.length - 1
-                                    ? "bx-highlight"
-                                    : ""
-                            }">
-
-                            ${esc(line)}
-
-                        </p>
-                    `;
-
-                }
-            ).join("");
-
-
-        return scene(
-            "bxSceneStory",
-            `
-
-            <div class="bx-stage">
-
-                <div class="bx-inner">
-
-                    <div class="bx-kicker">
                         01 — A LITTLE STORY
+
                     </div>
 
-                    <h2>
 
-                        ${esc(
-                            CONFIG.storyTitle ||
+                    <h2
+                        class="bx-heading">
+
+                        ${escapeHTML(
+                            C.storyTitle ||
                             "This wasn't supposed to become this."
                         )}
 
                     </h2>
 
-                    <div class="bx-text">
 
-                        ${html}
+                    <div
+                        class="bx-text"
+                        id="bxStory">
 
                     </div>
 
                 </div>
 
-            </div>
-
-            `
-        );
-
-    }
+            </section>
 
 
-    /* =====================================================
-       BUILD PHOTOS
-    ===================================================== */
+            <!-- =========================================
+                 PHOTOS
+            ========================================== -->
 
-    function buildPhotos() {
+            <section
+                class="bx-section"
+                data-section="photos">
 
-        var photos =
-            safeArray(
-                CONFIG.photos
-            );
-
-
-        var cards = "";
-
-
-        photos.forEach(
-            function (path, index) {
-
-                if (!exists(path)) {
-                    return;
-                }
-
-
-                cards += `
+                <div class="bx-container">
 
                     <div
-                        class="bx-photo"
-                        data-photo="${esc(path)}">
+                        class="bx-section-label">
 
-                        <img
-                            src="${esc(path)}"
-                            alt="Memory ${index + 1}"
-                            loading="lazy">
-
-                    </div>
-
-                `;
-
-            }
-        );
-
-
-        return scene(
-            "bxScenePhotos",
-            `
-
-            <div class="bx-stage">
-
-                <div class="bx-inner">
-
-                    <div class="bx-kicker">
                         02 — LITTLE MOMENTS
+
                     </div>
 
-                    <h2>
+
+                    <h2
+                        class="bx-heading">
 
                         Things worth
-                        <span>remembering.</span>
+                        <i>remembering.</i>
 
                     </h2>
 
-                    <p class="bx-text">
+
+                    <p
+                        class="bx-text">
 
                         Because some pictures
                         are not just pictures.
@@ -923,160 +801,158 @@
 
                     </p>
 
+
                     <div
                         class="bx-gallery"
                         id="bxGallery">
 
-                        ${cards}
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =========================================
+                 VIDEO 1
+            ========================================== -->
+
+            <section
+                class="bx-section bx-video-section"
+                data-section="video1">
+
+                <div class="bx-container">
+
+                    <div
+                        class="bx-section-label">
+
+                        03 — PRESS PLAY
+
+                    </div>
+
+
+                    <h2
+                        class="bx-heading">
+
+                        Some moments
+                        deserve <i>motion.</i>
+
+                    </h2>
+
+
+                    <div class="bx-video">
+
+                        <video
+                            id="bxVideo1"
+                            controls
+                            playsinline
+                            preload="metadata">
+
+                            <source
+                                src=""
+                                type="video/mp4">
+
+                        </video>
 
                     </div>
 
                 </div>
 
-            </div>
-
-            `
-        );
-
-    }
+            </section>
 
 
-    /* =====================================================
-       BUILD VIDEO SCENE
-    ===================================================== */
+            <!-- =========================================
+                 INTERLUDE
+            ========================================== -->
 
-    function buildVideo(
-        id,
-        number,
-        title,
-        path,
-        finalVideo
-    ) {
+            <section
+                class="bx-section bx-interlude"
+                data-section="interlude">
 
-        var section =
-            scene(
-                id,
-                `
+                <div class="bx-center">
 
-                <div class="bx-stage">
+                    <div class="bx-label">
 
-                    <div class="bx-inner">
-
-                        <div class="bx-kicker">
-                            ${esc(number)}
-                        </div>
-
-                        <h2>
-                            ${esc(title)}
-                        </h2>
-
-                        <div
-                            class="bx-video-wrap">
-
-                            <video
-                                playsinline
-                                controls
-                                preload="metadata"
-                                data-video-path="${esc(
-                                    path || ""
-                                )}"
-                                data-final="${
-                                    finalVideo
-                                        ? "1"
-                                        : "0"
-                                }">
-
-                                <source
-                                    src="${esc(
-                                        path || ""
-                                    )}"
-                                    type="video/mp4">
-
-                            </video>
-
-                        </div>
-
-                        <div class="bx-video-note">
-                            ${finalVideo
-                                ? "THE LAST SURPRISE"
-                                : "PRESS PLAY"}
-                        </div>
+                        WAIT...
 
                     </div>
 
+
+                    <h2>
+
+                        You thought
+
+                        <br>
+
+                        <span>
+
+                            that was it?
+
+                        </span>
+
+                    </h2>
+
+
+                    <p
+                        style="
+                        color:#766a77;
+                        margin-top:35px;
+                        letter-spacing:4px;
+                        ">
+
+                        Not quite.
+
+                    </p>
+
                 </div>
 
-                `
-            );
+            </section>
 
 
-        return section;
+            <!-- =========================================
+                 LETTER
+            ========================================== -->
 
-    }
+            <section
+                class="bx-section"
+                data-section="letter">
 
+                <div class="bx-container">
 
-    /* =====================================================
-       BUILD LETTER
-    ===================================================== */
+                    <div
+                        class="bx-section-label">
 
-    function buildLetter() {
-
-        var lines =
-            safeArray(
-                CONFIG.letter
-            );
-
-
-        var html =
-            lines.map(
-                function (line, index) {
-
-                    return `
-                        <p class="${
-                            index ===
-                            lines.length - 1
-                                ? "special"
-                                : ""
-                        }">
-
-                            ${esc(line)}
-
-                        </p>
-                    `;
-
-                }
-            ).join("");
-
-
-        return scene(
-            "bxSceneLetter",
-            `
-
-            <div class="bx-stage">
-
-                <div class="bx-inner">
-
-                    <div class="bx-kicker">
                         04 — SOMETHING I WANTED TO SAY
+
                     </div>
+
 
                     <div class="bx-letter">
 
                         <h2>
 
                             Hey
+
                             <span>
-                                ${esc(CONFIG.name)}
+
+                                ${escapeHTML(C.name)}
+
                             </span>,
 
                         </h2>
 
-                        ${html}
+
+                        <div
+                            id="bxLetter">
+
+                        </div>
+
 
                         <div
                             style="
-                            margin-top:50px;
-                            opacity:.7;
+                            margin-top:60px;
+                            color:#7d717d;
+                            line-height:1.8;
                             ">
 
                             — Someone who may like you
@@ -1085,7 +961,7 @@
 
                             <span
                                 style="
-                                color:#ff73bc;
+                                color:#ff73c2;
                                 ">
 
                                 a little more than he should. ♥
@@ -1098,31 +974,123 @@
 
                 </div>
 
-            </div>
-
-            `
-        );
-
-    }
+            </section>
 
 
-    /* =====================================================
-       BUILD FINAL MESSAGE
-    ===================================================== */
+            <!-- =========================================
+                 VIDEO 2
+            ========================================== -->
 
-    function buildFinal() {
+            <section
+                class="bx-section bx-video-section"
+                data-section="video2">
 
-        return scene(
-            "bxSceneFinal",
-            `
+                <div class="bx-container">
 
-            <div class="bx-stage">
+                    <div
+                        class="bx-section-label">
 
-                <div class="bx-inner">
+                        05 — ONE MORE THING
 
-                    <div class="bx-kicker">
-                        AND FINALLY...
                     </div>
+
+
+                    <h2
+                        class="bx-heading">
+
+                        Okay...
+
+                        <i>one more.</i>
+
+                    </h2>
+
+
+                    <div class="bx-video">
+
+                        <video
+                            id="bxVideo2"
+                            controls
+                            playsinline
+                            preload="metadata">
+
+                            <source
+                                src=""
+                                type="video/mp4">
+
+                        </video>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =========================================
+                 FINAL VIDEO
+            ========================================== -->
+
+            <section
+                class="bx-section bx-video-section"
+                data-section="finalVideo">
+
+                <div class="bx-container">
+
+                    <div
+                        class="bx-section-label">
+
+                        06 — THE LAST SURPRISE
+
+                    </div>
+
+
+                    <h2
+                        class="bx-heading">
+
+                        This one's
+
+                        <i>just for you.</i>
+
+                    </h2>
+
+
+                    <div class="bx-video">
+
+                        <video
+                            id="bxFinalVideo"
+                            controls
+                            playsinline
+                            preload="metadata">
+
+                            <source
+                                src=""
+                                type="video/mp4">
+
+                        </video>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =========================================
+                 FINAL MESSAGE
+            ========================================== -->
+
+            <section
+                class="bx-section bx-final"
+                data-section="final">
+
+                <div class="bx-center">
+
+                    <div class="bx-label">
+
+                        AND FINALLY...
+
+                    </div>
+
 
                     <h1>
 
@@ -1131,297 +1099,148 @@
                         <br>
 
                         <span>
+
                             Birthday.
+
                         </span>
 
                     </h1>
 
-                    <div
-                        style="
-                        margin-top:30px;
-                        font-size:
-                        clamp(25px,5vw,55px);
-                        ">
 
-                        ${esc(CONFIG.name)}
+                    <div
+                        class="bx-final-name">
+
+                        ${escapeHTML(C.name)}
+
                         ❤️
 
                     </div>
 
-                    <p class="bx-final-message">
 
-                        ${esc(
-                            CONFIG.finalMessage || ""
+                    <p
+                        class="bx-final-message">
+
+                        ${escapeHTML(
+                            C.finalMessage ||
+                            ""
                         )}
 
                     </p>
 
-                    <div class="bx-secret">
+
+                    <div
+                        class="bx-secret">
 
                         <strong>
+
                             P.S.
+
                         </strong>
+
 
                         <p>
 
-                            ${esc(
-                                CONFIG.finalSecret || ""
+                            ${escapeHTML(
+                                C.finalSecret ||
+                                ""
                             )}
 
                         </p>
 
+
                         <div class="bx-heart">
+
                             ♥
+
                         </div>
+
 
                         <small>
 
-                            ${esc(
-                                CONFIG.finalFooter || ""
+                            ${escapeHTML(
+                                C.finalFooter ||
+                                ""
                             )}
 
                         </small>
 
                     </div>
 
+
+                    <p
+                        style="
+                        margin-top:60px;
+                        color:#514852;
+                        font-size:9px;
+                        letter-spacing:2px;
+                        line-height:2;
+                        ">
+
+                        Made with a little too much effort
+
+                        <br>
+
+                        and probably a little too much affection.
+
+                    </p>
+
                 </div>
 
+            </section>
+
+
+            <!-- =========================================
+                 LIGHTBOX
+            ========================================== -->
+
+            <div
+                class="bx-lightbox"
+                id="bxLightbox">
+
+                <button
+                    class="bx-close"
+                    id="bxClose">
+
+                    ×
+
+                </button>
+
+
+                <img
+                    id="bxLightboxImage"
+                    src=""
+                    alt="Memory">
+
             </div>
-
-            `
-        );
-
-    }
-
-
-    /* =====================================================
-       BUILD LIGHTBOX
-    ===================================================== */
-
-    function buildLightbox() {
-
-        var el =
-            document.createElement(
-                "div"
-            );
-
-
-        el.className =
-            "bx-lightbox";
-
-
-        el.id =
-            "bxLightbox";
-
-
-        el.innerHTML = `
-
-            <button
-                class="bx-close"
-                id="bxLightboxClose">
-
-                ×
-
-            </button>
-
-            <img
-                id="bxLightboxImage"
-                alt="Memory">
 
         `;
 
 
-        root.appendChild(
-            el
+        document.body.appendChild(
+            experience
         );
 
-    }
 
+        /*
+         * First scene only.
+         */
 
-    /* =====================================================
-       BUILD MUSIC
-    ===================================================== */
-
-    function buildMusic() {
-
-        var button =
-            document.createElement(
-                "button"
+        const intro =
+            getScene(
+                "intro"
             );
 
 
-        button.className =
-            "bx-music";
+        if (intro) {
 
-
-        button.id =
-            "bxMusicButton";
-
-
-        button.textContent =
-            "🔇";
-
-
-        button.setAttribute(
-            "aria-label",
-            "Music"
-        );
-
-
-        root.appendChild(
-            button
-        );
-
-
-        if (!exists(CONFIG.music)) {
-
-            return;
-
-        }
-
-
-        music =
-            document.createElement(
-                "audio"
+            intro.classList.add(
+                "active"
             );
 
+            currentScene =
+                intro;
 
-        music.id =
-            "birthdayMusic";
-
-
-        music.src =
-            CONFIG.music;
-
-
-        music.loop =
-            true;
-
-
-        music.preload =
-            "auto";
-
-
-        music.volume =
-            typeof CONFIG.musicVolume ===
-            "number"
-                ? Math.max(
-                    0,
-                    Math.min(
-                        1,
-                        CONFIG.musicVolume
-                    )
-                )
-                : .45;
-
-
-        music.addEventListener(
-            "error",
-            function () {
-
-                console.warn(
-                    "Birthday music unavailable."
-                );
-
-            },
-            {
-                once: true
-            }
-        );
-
-
-        root.appendChild(
-            music
-        );
-
-
-        button.addEventListener(
-            "click",
-            function () {
-
-                if (!music) {
-                    return;
-                }
-
-
-                if (music.paused) {
-
-                    safePlayMusic();
-
-                } else {
-
-                    music.pause();
-
-                    button.textContent =
-                        "🔇";
-
-                }
-
-            }
-        );
-
-    }
-
-
-    /* =====================================================
-       MUSIC
-    ===================================================== */
-
-    function safePlayMusic() {
-
-        if (!music) {
-            return;
-        }
-
-
-        try {
-
-            var promise =
-                music.play();
-
-
-            if (
-                promise &&
-                typeof promise.catch ===
-                "function"
-            ) {
-
-                promise.catch(
-                    function () {
-
-                        console.warn(
-                            "Music autoplay blocked."
-                        );
-
-                    }
-                );
-
-            }
-
-
-            var button =
-                document.getElementById(
-                    "bxMusicButton"
-                );
-
-
-            if (button) {
-
-                button.textContent =
-                    "🎵";
-
-            }
-
-
-            state.musicStarted =
-                true;
-
-        } catch (error) {
-
-            console.warn(
-                "Music could not start.",
-                error
-            );
+            sceneIndex = 0;
 
         }
 
@@ -1429,118 +1248,163 @@
 
 
     /* =====================================================
-       SCENE MANAGEMENT
+       SCENE HELPERS
     ===================================================== */
 
     function getScenes() {
 
-        return Array.prototype.slice.call(
-            root.querySelectorAll(
-                ".bx-scene"
-            )
-        );
-
-    }
-
-
-    function showScene(
-        target
-    ) {
-
-        if (!target) {
-            return;
+        if (!experience) {
+            return [];
         }
 
 
-        var scenes =
-            getScenes();
+        return Array.from(
+            experience.querySelectorAll(
+                ".bx-screen, .bx-section"
+            )
+        ).filter(
+            function (el) {
 
-
-        scenes.forEach(
-            function (sceneEl) {
-
-                if (
-                    sceneEl ===
-                    target
-                ) {
-
-                    sceneEl.classList.remove(
-                        "exit"
-                    );
-
-                    sceneEl.classList.add(
-                        "active"
-                    );
-
-                } else {
-
-                    if (
-                        sceneEl.classList.contains(
-                            "active"
-                        )
-                    ) {
-
-                        sceneEl.classList.remove(
-                            "active"
-                        );
-
-                        sceneEl.classList.add(
-                            "exit"
-                        );
-
-                    } else {
-
-                        sceneEl.classList.remove(
-                            "active"
-                        );
-
-                    }
-
-                }
+                return (
+                    el.style.display !==
+                    "none"
+                );
 
             }
         );
 
-
-        state.currentScene =
-            target;
+    }
 
 
-        /*
-         * Reset scroll of target scene
-         */
+    function getScene(name) {
 
-        try {
-
-            target.scrollTop =
-                0;
-
-        } catch (e) {}
+        if (!experience) {
+            return null;
+        }
 
 
-        /*
-         * Progress
-         */
-
-        updateProgress();
+        return experience.querySelector(
+            '[data-section="' +
+            name +
+            '"]'
+        );
 
     }
 
 
-    function showSceneById(id) {
+    function setActiveScene(
+        next
+    ) {
 
-        var target =
-            document.getElementById(id);
-
-
-        if (!target) {
-            return false;
+        if (!next) {
+            return;
         }
 
 
-        showScene(target);
+        const scenes =
+            getScenes();
 
-        return true;
+
+        const old =
+            currentScene;
+
+
+        if (old === next) {
+            return;
+        }
+
+
+        clearActiveTimer();
+
+
+        /*
+         * Pause currently playing video.
+         */
+
+        pauseAllVideos();
+
+
+        /*
+         * OLD SCENE
+         */
+
+        if (old) {
+
+            old.classList.remove(
+                "active"
+            );
+
+            old.classList.add(
+                "exit"
+            );
+
+        }
+
+
+        /*
+         * Small transition delay.
+         */
+
+        setTimeout(
+            function () {
+
+                scenes.forEach(
+                    function (scene) {
+
+                        if (
+                            scene !== next &&
+                            scene !== old
+                        ) {
+
+                            scene.classList.remove(
+                                "active"
+                            );
+
+                            scene.classList.remove(
+                                "exit"
+                            );
+
+                        }
+
+                    }
+                );
+
+
+                next.classList.remove(
+                    "exit"
+                );
+
+
+                next.classList.add(
+                    "active"
+                );
+
+
+                currentScene =
+                    next;
+
+
+                sceneIndex =
+                    scenes.indexOf(
+                        next
+                    );
+
+
+                updateProgress(
+                    scenes,
+                    sceneIndex
+                );
+
+
+                onSceneEntered(
+                    next
+                );
+
+            },
+            old
+                ? TIMING.transition
+                : 0
+        );
 
     }
 
@@ -1549,275 +1413,157 @@
        NEXT SCENE
     ===================================================== */
 
-    function nextScene() {
+    function goNext() {
 
-        var scenes =
+        if (!started) {
+            return;
+        }
+
+
+        if (finished) {
+            return;
+        }
+
+
+        if (transitionLocked) {
+            return;
+        }
+
+
+        transitionLocked =
+            true;
+
+
+        const scenes =
             getScenes();
 
 
-        var index =
+        let index =
             scenes.indexOf(
-                state.currentScene
+                currentScene
             );
 
 
         if (index < 0) {
-            return;
+
+            index =
+                sceneIndex;
+
         }
 
 
-        var next =
-            scenes[index + 1];
+        let nextIndex =
+            index + 1;
 
 
-        if (!next) {
+        /*
+         * Skip hidden sections.
+         */
 
-            finishExperience();
+        while (
+            nextIndex <
+            scenes.length &&
+            (
+                scenes[nextIndex].style.display ===
+                "none" ||
 
-            return;
+                scenes[nextIndex].dataset.skipped ===
+                "true"
+            )
+        ) {
+
+            nextIndex++;
 
         }
 
 
         /*
-         * If next scene has been marked
-         * as skipped, continue.
+         * End reached.
          */
 
         if (
-            next.dataset.skip ===
-            "true"
+            nextIndex >=
+            scenes.length
         ) {
 
-            state.currentScene =
-                next;
+            transitionLocked =
+                false;
 
-
-            nextScene();
+            showFinalAndReveal();
 
             return;
 
         }
 
 
-        showScene(next);
+        const next =
+            scenes[nextIndex];
+
+
+        transitionLocked =
+            false;
+
+
+        setActiveScene(
+            next
+        );
 
     }
 
 
     /* =====================================================
-       PROGRESS
+       PREVIOUS SCENE
+       Optional keyboard support
     ===================================================== */
 
-    function updateProgress() {
+    function goPrevious() {
 
-        var scenes =
+        if (!started) {
+            return;
+        }
+
+
+        const scenes =
             getScenes();
 
 
-        var current =
+        const index =
             scenes.indexOf(
-                state.currentScene
+                currentScene
             );
 
 
-        if (current < 0) {
+        if (index <= 0) {
             return;
         }
 
 
-        var percent =
-            scenes.length > 1
-                ? (
-                    current /
-                    (scenes.length - 1)
-                ) * 100
-                : 0;
+        let previousIndex =
+            index - 1;
 
 
-        var old =
-            document.getElementById(
-                "bxProgress"
-            );
+        while (
+            previousIndex >= 0 &&
+            (
+                scenes[previousIndex].style.display ===
+                "none" ||
 
+                scenes[previousIndex].dataset.skipped ===
+                "true"
+            )
+        ) {
 
-        if (!old) {
+            previousIndex--;
 
-            var bar =
-                document.createElement(
-                    "div"
-                );
-
-
-            bar.id =
-                "bxProgress";
-
-
-            bar.style.position =
-                "fixed";
-
-
-            bar.style.top =
-                "0";
-
-
-            bar.style.left =
-                "0";
-
-
-            bar.style.height =
-                "2px";
-
-
-            bar.style.zIndex =
-                "100";
-
-
-            bar.style.background =
-                "#ff72bb";
-
-
-            bar.style.transition =
-                "width .5s ease";
-
-
-            root.appendChild(
-                bar
-            );
-
-
-            old =
-                bar;
-
-        }
-
-
-        old.style.width =
-            percent + "%";
-
-    }
-
-
-    /* =====================================================
-       START EXPERIENCE
-    ===================================================== */
-
-    function startExperience() {
-
-        if (state.started) {
-            return;
-        }
-
-
-        state.started =
-            true;
-
-
-        state.locked =
-            false;
-
-
-        /*
-         * Start music only NOW.
-         */
-
-        safePlayMusic();
-
-
-        /*
-         * First cinematic scene.
-         */
-
-        showSceneById(
-            "bxSceneHero"
-        );
-
-    }
-
-
-    /* =====================================================
-       PHOTO SAFETY
-    ===================================================== */
-
-    function setupPhotos() {
-
-        var images =
-            root.querySelectorAll(
-                ".bx-photo img"
-            );
-
-
-        Array.prototype.forEach.call(
-            images,
-            function (img) {
-
-                img.addEventListener(
-                    "error",
-                    function () {
-
-                        var card =
-                            img.closest(
-                                ".bx-photo"
-                            );
-
-
-                        if (card) {
-
-                            card.remove();
-
-                        }
-
-
-                        checkPhotoScene();
-
-                    },
-                    {
-                        once: true
-                    }
-                );
-
-
-                img.addEventListener(
-                    "click",
-                    function () {
-
-                        openLightbox(
-                            img.src
-                        );
-
-                    }
-                );
-
-            }
-        );
-
-
-        checkPhotoScene();
-
-    }
-
-
-    function checkPhotoScene() {
-
-        var gallery =
-            document.getElementById(
-                "bxGallery"
-            );
-
-
-        if (!gallery) {
-            return;
         }
 
 
         if (
-            gallery.querySelectorAll(
-                ".bx-photo"
-            ).length === 0
+            previousIndex >= 0
         ) {
 
-            skipScene(
-                "bxScenePhotos"
+            setActiveScene(
+                scenes[previousIndex]
             );
 
         }
@@ -1826,131 +1572,427 @@
 
 
     /* =====================================================
-       LIGHTBOX
+       SCENE ENTERED
     ===================================================== */
 
-    function openLightbox(src) {
+    function onSceneEntered(
+        scene
+    ) {
 
-        var box =
-            document.getElementById(
-                "bxLightbox"
-            );
-
-
-        var image =
-            document.getElementById(
-                "bxLightboxImage"
-            );
-
-
-        if (!box || !image) {
+        if (!scene) {
             return;
         }
 
 
-        image.src =
-            src;
+        const type =
+            scene.dataset.section;
 
 
-        box.classList.add(
-            "show"
+        console.log(
+            "🎬 Scene:",
+            type
         );
 
-    }
 
+        /*
+         * INTRO
+         */
 
-    function closeLightbox() {
+        if (
+            type ===
+            "intro"
+        ) {
 
-        var box =
-            document.getElementById(
-                "bxLightbox"
-            );
-
-
-        if (box) {
-
-            box.classList.remove(
-                "show"
-            );
+            return;
 
         }
 
-    }
 
+        /*
+         * HERO
+         */
 
-    /* =====================================================
-       VIDEO HANDLING
-       
-       IMPORTANT:
-       A missing video NEVER blocks the sequence.
-    ===================================================== */
+        if (
+            type ===
+            "hero"
+        ) {
 
-    function setupVideos() {
-
-        var videos =
-            root.querySelectorAll(
-                "video"
+            autoNext(
+                TIMING.hero
             );
 
+            return;
 
-        Array.prototype.forEach.call(
-            videos,
-            function (video) {
+        }
 
-                setupOneVideo(
-                    video
+
+        /*
+         * STORY
+         */
+
+        if (
+            type ===
+            "story"
+        ) {
+
+            autoNext(
+                TIMING.story
+            );
+
+            return;
+
+        }
+
+
+        /*
+         * PHOTOS
+         */
+
+        if (
+            type ===
+            "photos"
+        ) {
+
+            const gallery =
+                scene.querySelector(
+                    "#bxGallery"
                 );
 
+
+            if (
+                !gallery ||
+                gallery.children.length === 0
+            ) {
+
+                skipCurrentScene();
+
+                return;
+
             }
+
+
+            autoNext(
+                TIMING.photos
+            );
+
+            return;
+
+        }
+
+
+        /*
+         * VIDEO 1
+         */
+
+        if (
+            type ===
+            "video1"
+        ) {
+
+            playSceneVideo(
+                "bxVideo1",
+                false
+            );
+
+            return;
+
+        }
+
+
+        /*
+         * INTERLUDE
+         */
+
+        if (
+            type ===
+            "interlude"
+        ) {
+
+            autoNext(
+                TIMING.interlude
+            );
+
+            return;
+
+        }
+
+
+        /*
+         * LETTER
+         */
+
+        if (
+            type ===
+            "letter"
+        ) {
+
+            autoNext(
+                TIMING.letter
+            );
+
+            return;
+
+        }
+
+
+        /*
+         * VIDEO 2
+         */
+
+        if (
+            type ===
+            "video2"
+        ) {
+
+            playSceneVideo(
+                "bxVideo2",
+                false
+            );
+
+            return;
+
+        }
+
+
+        /*
+         * FINAL VIDEO
+         */
+
+        if (
+            type ===
+            "finalVideo"
+        ) {
+
+            playSceneVideo(
+                "bxFinalVideo",
+                true
+            );
+
+            return;
+
+        }
+
+
+        /*
+         * FINAL
+         */
+
+        if (
+            type ===
+            "final"
+        ) {
+
+            setFinalTimer();
+
+        }
+
+    }
+
+
+    /* =====================================================
+       AUTO NEXT
+    ===================================================== */
+
+    function autoNext(
+        duration
+    ) {
+
+        clearActiveTimer();
+
+
+        activeTimer =
+            setTimeout(
+                function () {
+
+                    activeTimer =
+                        null;
+
+                    goNext();
+
+                },
+                duration
+            );
+
+    }
+
+
+    /* =====================================================
+       SKIP CURRENT
+    ===================================================== */
+
+    function skipCurrentScene() {
+
+        if (!currentScene) {
+            return;
+        }
+
+
+        currentScene.dataset.skipped =
+            "true";
+
+
+        currentScene.style.display =
+            "none";
+
+
+        /*
+         * Move immediately.
+         */
+
+        setTimeout(
+            function () {
+
+                transitionLocked =
+                    false;
+
+                goNext();
+
+            },
+            250
         );
 
     }
 
 
-    function setupOneVideo(video) {
+    /* =====================================================
+       VIDEO SETUP
+    ===================================================== */
 
-        var sceneEl =
-            video.closest(
-                ".bx-scene"
+    function setupVideo(
+        id,
+        path,
+        isFinal
+    ) {
+
+        const video =
+            document.getElementById(
+                id
             );
 
 
-        if (!sceneEl) {
+        if (!video) {
+
+            console.warn(
+                "⚠️ Video element missing:",
+                id
+            );
+
             return;
+
         }
 
 
-        var path =
-            video.getAttribute(
-                "data-video-path"
+        const source =
+            video.querySelector(
+                "source"
             );
 
 
         /*
-         * Empty path
+         * No path.
          */
 
-        if (!exists(path)) {
+        if (
+            !hasPath(path)
+        ) {
 
-            skipVideoScene(
-                video,
-                "empty path"
+            console.warn(
+                "⏭️ No video path:",
+                id
             );
+
+
+            skipVideoElement(
+                video
+            );
+
 
             return;
 
         }
 
 
-        var finished =
+        if (!source) {
+
+            skipVideoElement(
+                video
+            );
+
+
+            return;
+
+        }
+
+
+        /*
+         * Never autoplay during page load.
+         */
+
+        video.autoplay =
             false;
 
 
+        video.removeAttribute(
+            "autoplay"
+        );
+
+
+        video.controls =
+            true;
+
+
+        video.playsInline =
+            true;
+
+
         /*
-         * ERROR
+         * Set source.
          */
 
-        function onError() {
+        source.src =
+            path;
+
+
+        video.dataset.path =
+            path;
+
+
+        video.dataset.final =
+            isFinal
+                ? "true"
+                : "false";
+
+
+        /*
+         * Load now so missing file
+         * can be detected before scene.
+         */
+
+        try {
+
+            video.load();
+
+        } catch (error) {
+
+            console.warn(
+                "Video load:",
+                error
+            );
+
+        }
+
+
+        let finished =
+            false;
+
+
+        let loadTimer =
+            null;
+
+
+        function finishVideo(
+            reason
+        ) {
 
             if (finished) {
                 return;
@@ -1961,19 +2003,98 @@
                 true;
 
 
-            skipVideoScene(
-                video,
-                "load error"
+            if (loadTimer) {
+
+                clearTimeout(
+                    loadTimer
+                );
+
+                loadTimer =
+                    null;
+
+            }
+
+
+            if (
+                currentVideo ===
+                video
+            ) {
+
+                currentVideo =
+                    null;
+
+            }
+
+
+            console.log(
+                "🎥 Video complete/skip:",
+                id,
+                reason || ""
             );
+
+
+            if (isFinal) {
+
+                /*
+                 * Final video completed.
+                 * Show final message.
+                 */
+
+                showFinalAndReveal();
+
+            } else {
+
+                goNext();
+
+            }
 
         }
 
 
+        /*
+         * ERROR
+         */
+
         video.addEventListener(
             "error",
-            onError,
+            function () {
+
+                console.warn(
+                    "⏭️ Video error:",
+                    id,
+                    path
+                );
+
+
+                skipVideoElement(
+                    video
+                );
+
+            },
             {
-                once: true
+                once: false
+            }
+        );
+
+
+        source.addEventListener(
+            "error",
+            function () {
+
+                console.warn(
+                    "⏭️ Source error:",
+                    id,
+                    path
+                );
+
+
+                skipVideoElement(
+                    video
+                );
+
+            },
+            {
+                once: false
             }
         );
 
@@ -1986,34 +2107,9 @@
             "ended",
             function () {
 
-                if (finished) {
-                    return;
-                }
-
-
-                finished =
-                    true;
-
-
-                state.videoPlaying =
-                    false;
-
-
-                var isFinal =
-                    video.getAttribute(
-                        "data-final"
-                    ) === "1";
-
-
-                if (isFinal) {
-
-                    finishExperience();
-
-                } else {
-
-                    nextScene();
-
-                }
+                finishVideo(
+                    "ended"
+                );
 
             }
         );
@@ -2027,22 +2123,21 @@
             "play",
             function () {
 
-                state.videoPlaying =
-                    true;
+                currentVideo =
+                    video;
 
 
                 /*
-                 * Pause all other videos.
+                 * Stop other videos.
                  */
 
-                var all =
-                    root.querySelectorAll(
+                const allVideos =
+                    experience.querySelectorAll(
                         "video"
                     );
 
 
-                Array.prototype.forEach.call(
-                    all,
+                allVideos.forEach(
                     function (other) {
 
                         if (
@@ -2051,7 +2146,9 @@
                         ) {
 
                             try {
+
                                 other.pause();
+
                             } catch (e) {}
 
                         }
@@ -2063,125 +2160,229 @@
         );
 
 
-        video.addEventListener(
-            "pause",
-            function () {
-
-                state.videoPlaying =
-                    false;
-
-            }
-        );
-
-
         /*
-         * If browser cannot load
-         * source, skip after short delay.
+         * CAN PLAY
          */
-
-        var timeout =
-            setTimeout(
-                function () {
-
-                    if (
-                        !finished &&
-                        video.readyState === 0
-                    ) {
-
-                        /*
-                         * Don't blindly skip if
-                         * browser has not attempted
-                         * network yet.
-                         */
-
-                        try {
-
-                            video.load();
-
-                        } catch (e) {}
-
-                    }
-
-                },
-                1500
-            );
-
-
-        video.addEventListener(
-            "loadedmetadata",
-            function () {
-
-                clearTimeout(
-                    timeout
-                );
-
-            },
-            {
-                once: true
-            }
-        );
-
 
         video.addEventListener(
             "canplay",
             function () {
 
-                clearTimeout(
-                    timeout
-                );
+                if (loadTimer) {
 
-            },
-            {
-                once: true
+                    clearTimeout(
+                        loadTimer
+                    );
+
+                    loadTimer =
+                        null;
+
+                }
+
             }
         );
+
+
+        /*
+         * Loaded metadata.
+         */
+
+        video.addEventListener(
+            "loadedmetadata",
+            function () {
+
+                if (loadTimer) {
+
+                    clearTimeout(
+                        loadTimer
+                    );
+
+                    loadTimer =
+                        null;
+
+                }
+
+            }
+        );
+
+
+        /*
+         * We intentionally don't mark a video
+         * missing immediately.
+         *
+         * Browser gets time to load it.
+         */
+
+        loadTimer =
+            setTimeout(
+                function () {
+
+                    if (
+                        video.readyState <
+                        2
+                    ) {
+
+                        console.warn(
+                            "⏭️ Video unavailable after timeout:",
+                            id
+                        );
+
+
+                        skipVideoElement(
+                            video
+                        );
+
+                    }
+
+                },
+                TIMING.videoLoadTimeout
+            );
 
     }
 
 
     /* =====================================================
-       SKIP VIDEO
+       PLAY VIDEO WHEN SCENE OPENS
     ===================================================== */
 
-    function skipVideoScene(
-        video,
-        reason
+    function playSceneVideo(
+        id,
+        isFinal
     ) {
 
-        console.warn(
-            "Skipping video:",
-            reason,
-            video
-                ? video.getAttribute(
-                    "data-video-path"
-                )
-                : ""
-        );
+        const video =
+            document.getElementById(
+                id
+            );
 
 
-        var sceneEl =
-            video
-                ? video.closest(
-                    ".bx-scene"
-                )
-                : null;
+        if (!video) {
 
+            skipCurrentScene();
 
-        if (!sceneEl) {
             return;
+
+        }
+
+
+        const path =
+            video.dataset.path ||
+            (
+                video.querySelector(
+                    "source"
+                ) || {}
+            ).src;
+
+
+        if (
+            !hasPath(path)
+        ) {
+
+            skipCurrentScene();
+
+            return;
+
         }
 
 
         /*
-         * Mark skipped.
+         * Make sure video starts
+         * from the beginning when scene
+         * is entered.
          */
 
-        sceneEl.dataset.skip =
+        try {
+
+            video.currentTime =
+                0;
+
+        } catch (e) {}
+
+
+        /*
+         * User has already clicked Start,
+         * so browser generally permits
+         * media playback.
+         */
+
+        try {
+
+            const promise =
+                video.play();
+
+
+            if (
+                promise &&
+                typeof promise.catch ===
+                "function"
+            ) {
+
+                promise.catch(
+                    function (error) {
+
+                        console.warn(
+                            "⚠️ Video autoplay blocked:",
+                            error
+                        );
+
+
+                        /*
+                         * Don't break the flow.
+                         *
+                         * If browser blocks autoplay,
+                         * user can press play manually.
+                         *
+                         * We DON'T auto-skip a valid video
+                         * merely because autoplay was blocked.
+                         */
+
+                    }
+                );
+
+            }
+
+        } catch (error) {
+
+            console.warn(
+                "Video play error:",
+                error
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       SKIP VIDEO ELEMENT
+    ===================================================== */
+
+    function skipVideoElement(
+        video
+    ) {
+
+        if (!video) {
+            return;
+        }
+
+
+        const section =
+            video.closest(
+                ".bx-section"
+            );
+
+
+        if (!section) {
+            return;
+        }
+
+
+        section.dataset.skipped =
             "true";
 
 
         /*
-         * Stop video.
+         * Stop it.
          */
 
         try {
@@ -2192,24 +2393,40 @@
 
 
         /*
-         * Hide scene.
+         * Do NOT remove source here.
+         *
+         * Keeping the configured path intact
+         * makes debugging much easier and
+         * respects your requirement that you
+         * don't want to remove media paths.
          */
 
-        sceneEl.style.display =
+
+        section.style.display =
             "none";
 
 
         /*
-         * If this scene is currently
-         * active, automatically move on.
+         * If this is the currently visible
+         * scene, continue.
          */
 
         if (
-            state.currentScene ===
-            sceneEl
+            currentScene ===
+            section
         ) {
 
-            nextScene();
+            setTimeout(
+                function () {
+
+                    transitionLocked =
+                        false;
+
+                    goNext();
+
+                },
+                250
+            );
 
         }
 
@@ -2217,281 +2434,435 @@
 
 
     /* =====================================================
-       FINAL EXPERIENCE
+       VIDEO PAUSE
     ===================================================== */
 
-    function finishExperience() {
+    function pauseAllVideos() {
 
-        if (
-            state.finished
-        ) {
-
+        if (!experience) {
             return;
-
         }
 
 
-        state.finished =
-            true;
-
-
-        state.finalRevealStarted =
-            true;
-
-
-        /*
-         * Stop any cinematic videos.
-         */
-
-        var videos =
-            root.querySelectorAll(
+        const videos =
+            experience.querySelectorAll(
                 "video"
             );
 
 
-        Array.prototype.forEach.call(
-            videos,
+        videos.forEach(
             function (video) {
 
                 try {
+
                     video.pause();
+
                 } catch (e) {}
 
             }
         );
 
 
-        /*
-         * Music can continue during
-         * final reveal.
-         */
-
-
-        /*
-         * Hide cinematic overlay.
-         */
-
-        setTimeout(
-            function () {
-
-                revealOriginalBirthday();
-
-            },
-            600
-        );
+        currentVideo =
+            null;
 
     }
 
 
     /* =====================================================
-       ORIGINAL PAGE REVEAL
-       
-       We don't destroy garden.js/fireworks.js.
-       We simply reveal the original page.
+       STORY
     ===================================================== */
 
-    function revealOriginalBirthday() {
+    function buildStory() {
 
-        /*
-         * Try existing original page.
-         */
-
-        try {
-
-            var original =
-                document.getElementById(
-                    "main"
-                );
-
-
-            if (original) {
-
-                original.style.visibility =
-                    "visible";
-
-                original.style.opacity =
-                    "1";
-
-            }
-
-        } catch (e) {}
-
-
-        /*
-         * Fade cinematic layer.
-         */
-
-        if (root) {
-
-            root.style.transition =
-                "opacity 1600ms ease";
-
-
-            root.style.opacity =
-                "0";
-
-
-            setTimeout(
-                function () {
-
-                    if (root) {
-
-                        root.style.display =
-                            "none";
-
-                    }
-
-                },
-                1700
-            );
-
-        }
-
-
-        /*
-         * Trigger original animation
-         * if available.
-         */
-
-        setTimeout(
-            function () {
-
-                try {
-
-                    if (
-                        typeof startHeartAnimation ===
-                        "function"
-                    ) {
-
-                        startHeartAnimation();
-
-                    }
-
-                } catch (e) {
-
-                    console.log(
-                        "Garden animation unavailable."
-                    );
-
-                }
-
-
-                try {
-
-                    if (
-                        typeof startFireworks ===
-                        "function"
-                    ) {
-
-                        startFireworks();
-
-                    }
-
-                } catch (e) {
-
-                    console.log(
-                        "Fireworks unavailable."
-                    );
-
-                }
-
-            },
-            500
-        );
-
-
-        /*
-         * Fireworks fallbacks.
-         */
-
-        try {
-
-            var canvas =
-                document.getElementById(
-                    "canvas"
-                );
-
-
-            if (canvas) {
-
-                canvas.style.visibility =
-                    "visible";
-
-                canvas.style.opacity =
-                    "1";
-
-            }
-
-        } catch (e) {}
-
-    }
-
-
-    /* =====================================================
-       SKIP GENERIC SCENE
-    ===================================================== */
-
-    function skipScene(id) {
-
-        var sceneEl =
+        const box =
             document.getElementById(
-                id
+                "bxStory"
             );
 
 
-        if (!sceneEl) {
+        if (!box) {
             return;
         }
 
 
-        sceneEl.dataset.skip =
+        box.innerHTML =
+            "";
+
+
+        const lines =
+            Array.isArray(
+                C.storyLines
+            )
+                ? C.storyLines
+                : [];
+
+
+        lines.forEach(
+            function (
+                text,
+                index
+            ) {
+
+                const p =
+                    document.createElement(
+                        "p"
+                    );
+
+
+                p.textContent =
+                    text;
+
+
+                if (
+                    index ===
+                    lines.length - 1
+                ) {
+
+                    p.className =
+                        "bx-highlight";
+
+                }
+
+
+                box.appendChild(
+                    p
+                );
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       LETTER
+    ===================================================== */
+
+    function buildLetter() {
+
+        const box =
+            document.getElementById(
+                "bxLetter"
+            );
+
+
+        if (!box) {
+            return;
+        }
+
+
+        box.innerHTML =
+            "";
+
+
+        const lines =
+            Array.isArray(
+                C.letter
+            )
+                ? C.letter
+                : [];
+
+
+        lines.forEach(
+            function (
+                text,
+                index
+            ) {
+
+                const p =
+                    document.createElement(
+                        "p"
+                    );
+
+
+                p.textContent =
+                    text;
+
+
+                if (
+                    index ===
+                    lines.length - 1
+                ) {
+
+                    p.className =
+                        "special";
+
+                }
+
+
+                if (
+                    text ===
+                    "You just became special."
+                ) {
+
+                    p.className =
+                        "special";
+
+                }
+
+
+                box.appendChild(
+                    p
+                );
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       PHOTO GALLERY
+    ===================================================== */
+
+    function buildGallery() {
+
+        const gallery =
+            document.getElementById(
+                "bxGallery"
+            );
+
+
+        if (!gallery) {
+            return;
+        }
+
+
+        gallery.innerHTML =
+            "";
+
+
+        const photos =
+            Array.isArray(
+                C.photos
+            )
+                ? C.photos
+                : [];
+
+
+        if (
+            photos.length === 0
+        ) {
+
+            hidePhotosSection();
+
+            return;
+
+        }
+
+
+        photos.forEach(
+            function (
+                photo,
+                index
+            ) {
+
+                if (
+                    !hasPath(photo)
+                ) {
+
+                    return;
+
+                }
+
+
+                const wrapper =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                wrapper.className =
+                    "bx-photo";
+
+
+                const img =
+                    document.createElement(
+                        "img"
+                    );
+
+
+                img.src =
+                    photo;
+
+
+                img.alt =
+                    "Memory " +
+                    (index + 1);
+
+
+                img.loading =
+                    "lazy";
+
+
+                /*
+                 * Missing photo:
+                 * remove only that photo.
+                 */
+
+                img.addEventListener(
+                    "error",
+                    function () {
+
+                        console.warn(
+                            "⏭️ Photo skipped:",
+                            photo
+                        );
+
+
+                        wrapper.remove();
+
+
+                        if (
+                            gallery.children.length ===
+                            0
+                        ) {
+
+                            hidePhotosSection();
+
+                        }
+
+                    },
+                    {
+                        once: true
+                    }
+                );
+
+
+                /*
+                 * Lightbox
+                 */
+
+                wrapper.addEventListener(
+                    "click",
+                    function () {
+
+                        openLightbox(
+                            photo
+                        );
+
+                    }
+                );
+
+
+                wrapper.appendChild(
+                    img
+                );
+
+
+                gallery.appendChild(
+                    wrapper
+                );
+
+            }
+        );
+
+
+        if (
+            gallery.children.length ===
+            0
+        ) {
+
+            hidePhotosSection();
+
+        }
+
+    }
+
+
+    /* =====================================================
+       HIDE PHOTO SECTION
+    ===================================================== */
+
+    function hidePhotosSection() {
+
+        const section =
+            getScene(
+                "photos"
+            );
+
+
+        if (!section) {
+            return;
+        }
+
+
+        section.dataset.skipped =
             "true";
 
 
-        sceneEl.style.display =
+        section.style.display =
             "none";
 
     }
 
 
     /* =====================================================
-       START BUTTON
+       LIGHTBOX
     ===================================================== */
 
-    function setupStart() {
+    function openLightbox(
+        src
+    ) {
 
-        var button =
+        const lightbox =
             document.getElementById(
-                "bxStartButton"
+                "bxLightbox"
             );
 
 
-        if (!button) {
+        const image =
+            document.getElementById(
+                "bxLightboxImage"
+            );
+
+
+        if (
+            !lightbox ||
+            !image
+        ) {
+
             return;
+
         }
 
 
-        button.addEventListener(
-            "click",
-            function () {
+        image.src =
+            src;
 
-                startExperience();
 
-            }
+        lightbox.classList.add(
+            "show"
         );
 
     }
 
 
-    /* =====================================================
-       LIGHTBOX EVENTS
-    ===================================================== */
+    function closeLightbox() {
+
+        const lightbox =
+            document.getElementById(
+                "bxLightbox"
+            );
+
+
+        if (lightbox) {
+
+            lightbox.classList.remove(
+                "show"
+            );
+
+        }
+
+    }
+
 
     function setupLightbox() {
 
-        var close =
+        const close =
             document.getElementById(
-                "bxLightboxClose"
+                "bxClose"
             );
 
 
@@ -2505,21 +2876,23 @@
         }
 
 
-        var box =
+        const lightbox =
             document.getElementById(
                 "bxLightbox"
             );
 
 
-        if (box) {
+        if (lightbox) {
 
-            box.addEventListener(
+            lightbox.addEventListener(
                 "click",
-                function (event) {
+                function (
+                    event
+                ) {
 
                     if (
                         event.target ===
-                        box
+                        lightbox
                     ) {
 
                         closeLightbox();
@@ -2534,7 +2907,9 @@
 
         document.addEventListener(
             "keydown",
-            function (event) {
+            function (
+                event
+            ) {
 
                 if (
                     event.key ===
@@ -2552,112 +2927,858 @@
 
 
     /* =====================================================
-       PREVENT PAGE SCROLL
-       
-       Cinematic scenes handle their own scrolling.
+       MUSIC
     ===================================================== */
 
-    function lockBody() {
+    function setupMusic() {
 
-        document.documentElement.style
-            .overflow =
-            "hidden";
+        if (
+            !hasPath(
+                C.music
+            )
+        ) {
 
-        document.body.style
-            .overflow =
-            "hidden";
+            console.warn(
+                "ℹ️ No music configured."
+            );
 
-    }
+            return;
 
-
-    /* =====================================================
-       UNLOCK BODY
-    ===================================================== */
-
-    function unlockBody() {
-
-        document.documentElement.style
-            .overflow =
-            "";
-
-        document.body.style
-            .overflow =
-            "";
-
-    }
+        }
 
 
-    /* =====================================================
-       BUILD ALL
-    ===================================================== */
-
-    function build() {
-
-        injectSafetyCSS();
-
-        lockBody();
-
-        createRoot();
+        music =
+            document.createElement(
+                "audio"
+            );
 
 
-        /*
-         * Build in exact order.
-         */
-
-        buildIntro();
-
-        buildHero();
-
-        buildStory();
-
-        buildPhotos();
+        music.id =
+            "birthdayMusic";
 
 
-        buildVideo(
-            "bxSceneVideo1",
-            "03 — PRESS PLAY",
-            "Some moments deserve motion.",
-            CONFIG.memoryVideo,
-            false
+        music.src =
+            C.music;
+
+
+        music.loop =
+            true;
+
+
+        music.preload =
+            "auto";
+
+
+        music.volume =
+            typeof C.musicVolume ===
+            "number"
+
+                ? Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        C.musicVolume
+                    )
+                )
+
+                : .45;
+
+
+        music.addEventListener(
+            "error",
+            function () {
+
+                console.warn(
+                    "⚠️ Music unavailable. Continuing without music."
+                );
+
+            },
+            {
+                once: true
+            }
         );
 
 
-        buildLetter();
-
-
-        buildVideo(
-            "bxSceneVideo2",
-            "05 — ONE MORE THING",
-            "Okay... one more.",
-            CONFIG.secondVideo,
-            false
+        document.body.appendChild(
+            music
         );
 
 
-        buildVideo(
-            "bxSceneFinalVideo",
-            "06 — THE LAST SURPRISE",
-            "This one's just for you.",
-            CONFIG.finalVideo,
-            true
-        );
-
-
-        buildFinal();
-
-
-        buildLightbox();
-
-        buildMusic();
-
-
-        /*
-         * Intro active.
-         */
-
-        var intro =
+        const button =
             document.getElementById(
-                "bxSceneIntro"
+                "bxMusic"
+            );
+
+
+        if (!button) {
+            return;
+        }
+
+
+        button.addEventListener(
+            "click",
+            function () {
+
+                if (!music) {
+                    return;
+                }
+
+
+                if (
+                    music.paused
+                ) {
+
+                    playMusic();
+
+                } else {
+
+                    music.pause();
+
+                    button.textContent =
+                        "🔇";
+
+                }
+
+            }
+        );
+
+    }
+
+
+    function playMusic() {
+
+        if (!music) {
+            return;
+        }
+
+
+        const button =
+            document.getElementById(
+                "bxMusic"
+            );
+
+
+        try {
+
+            const promise =
+                music.play();
+
+
+            if (
+                promise &&
+                typeof promise.catch ===
+                "function"
+            ) {
+
+                promise.catch(
+                    function () {
+
+                        console.warn(
+                            "ℹ️ Music autoplay blocked."
+                        );
+
+                    }
+                );
+
+            }
+
+
+            if (button) {
+
+                button.textContent =
+                    "🎵";
+
+            }
+
+        } catch (error) {
+
+            console.warn(
+                "Music play failed:",
+                error
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       START BUTTON
+    ===================================================== */
+
+    function setupStartButton() {
+
+        const button =
+            document.getElementById(
+                "bxStart"
+            );
+
+
+        if (!button) {
+
+            console.error(
+                "❌ bxStart not found."
+            );
+
+            return;
+
+        }
+
+
+        button.addEventListener(
+            "click",
+            function () {
+
+                if (started) {
+                    return;
+                }
+
+
+                started =
+                    true;
+
+
+                button.disabled =
+                    true;
+
+
+                button.textContent =
+                    "Opening...";
+
+
+                /*
+                 * Music starts from actual
+                 * user interaction.
+                 */
+
+                playMusic();
+
+
+                /*
+                 * Hero.
+                 */
+
+                const hero =
+                    getScene(
+                        "hero"
+                    );
+
+
+                if (!hero) {
+
+                    console.error(
+                        "❌ Hero scene missing."
+                    );
+
+                    return;
+
+                }
+
+
+                console.log(
+                    "🎬 CINEMATIC START"
+                );
+
+
+                setActiveScene(
+                    hero
+                );
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       PROGRESS BAR
+    ===================================================== */
+
+    function updateProgress(
+        scenes,
+        index
+    ) {
+
+        const bar =
+            document.getElementById(
+                "bxProgress"
+            );
+
+
+        if (!bar) {
+            return;
+        }
+
+
+        const total =
+            scenes.length;
+
+
+        const percent =
+            total > 1
+
+                ? (
+                    index /
+                    (total - 1)
+                ) * 100
+
+                : 0;
+
+
+        bar.style.width =
+            percent + "%";
+
+    }
+
+
+    /* =====================================================
+       KEYBOARD / TOUCH SAFETY
+    ===================================================== */
+
+    function setupKeyboard() {
+
+        document.addEventListener(
+            "keydown",
+            function (
+                event
+            ) {
+
+                if (!started) {
+                    return;
+                }
+
+
+                if (
+                    event.key ===
+                    "ArrowRight"
+                ) {
+
+                    goNext();
+
+                }
+
+
+                if (
+                    event.key ===
+                    "ArrowLeft"
+                ) {
+
+                    goPrevious();
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       FINAL MESSAGE
+    ===================================================== */
+
+    function showFinalAndReveal() {
+
+        if (
+            finalCelebrationStarted
+        ) {
+
+            return;
+
+        }
+
+
+        finalCelebrationStarted =
+            true;
+
+
+        clearActiveTimer();
+
+
+        pauseAllVideos();
+
+
+        const finalScene =
+            getScene(
+                "final"
+            );
+
+
+        if (!finalScene) {
+
+            revealOriginalPage();
+
+            return;
+
+        }
+
+
+        /*
+         * Make final scene visible.
+         */
+
+        finalScene.style.display =
+            "";
+
+
+        finalScene.dataset.skipped =
+            "false";
+
+
+        /*
+         * If current scene exists,
+         * animate normally.
+         */
+
+        setActiveScene(
+            finalScene
+        );
+
+
+        /*
+         * Hearts / particles.
+         */
+
+        createHeartRain();
+
+
+        /*
+         * Let final message stay visible
+         * before original garden appears.
+         */
+
+        activeTimer =
+            setTimeout(
+                function () {
+
+                    revealOriginalPage();
+
+                },
+                TIMING.finalRevealDelay
+            );
+
+    }
+
+
+    /* =====================================================
+       HEART RAIN
+    ===================================================== */
+
+    function createHeartRain() {
+
+        const symbols = [
+            "♥",
+            "❤",
+            "💗",
+            "✨",
+            "💖"
+        ];
+
+
+        for (
+            let i = 0;
+            i < 65;
+            i++
+        ) {
+
+            const heart =
+                document.createElement(
+                    "div"
+                );
+
+
+            heart.textContent =
+                symbols[
+                    Math.floor(
+                        Math.random() *
+                        symbols.length
+                    )
+                ];
+
+
+            heart.style.position =
+                "fixed";
+
+
+            heart.style.left =
+                (
+                    Math.random() *
+                    100
+                ) +
+                "vw";
+
+
+            heart.style.top =
+                "-40px";
+
+
+            heart.style.zIndex =
+                "100000";
+
+
+            heart.style.fontSize =
+                (
+                    15 +
+                    Math.random() *
+                    25
+                ) +
+                "px";
+
+
+            heart.style.color =
+                "#ff65b9";
+
+
+            heart.style.pointerEvents =
+                "none";
+
+
+            const duration =
+                3000 +
+                Math.random() *
+                3500;
+
+
+            if (
+                typeof heart.animate ===
+                "function"
+            ) {
+
+                heart.animate(
+                    [
+                        {
+                            transform:
+                                "translateY(0) rotate(0deg)",
+                            opacity:
+                                1
+                        },
+
+                        {
+                            transform:
+                                "translateY(115vh) rotate(600deg)",
+                            opacity:
+                                0
+                        }
+                    ],
+                    {
+                        duration:
+                            duration,
+
+                        easing:
+                            "ease-out"
+                    }
+                );
+
+            }
+
+
+            document.body.appendChild(
+                heart
+            );
+
+
+            setTimeout(
+                function () {
+
+                    if (
+                        heart &&
+                        heart.parentNode
+                    ) {
+
+                        heart.remove();
+
+                    }
+
+                },
+                duration + 500
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       REVEAL ORIGINAL BIRTHDAY PAGE
+    ===================================================== */
+
+    function revealOriginalPage() {
+
+        if (finished) {
+            return;
+
+        }
+
+
+        finished =
+            true;
+
+
+        console.log(
+            "🎆 Revealing original birthday experience."
+        );
+
+
+        /*
+         * Activate original page.
+         *
+         * We don't delete anything from
+         * the original HTML.
+         */
+
+        const originalCanvas =
+            document.getElementById(
+                "canvas"
+            );
+
+
+        if (
+            originalCanvas
+        ) {
+
+            originalCanvas.style.visibility =
+                "visible";
+
+            originalCanvas.style.opacity =
+                "1";
+
+        }
+
+
+        /*
+         * Try original garden animation.
+         */
+
+        try {
+
+            if (
+                typeof startHeartAnimation ===
+                "function"
+            ) {
+
+                startHeartAnimation();
+
+            }
+
+        } catch (error) {
+
+            console.warn(
+                "Garden animation unavailable:",
+                error
+            );
+
+        }
+
+
+        /*
+         * Try original fireworks.
+         */
+
+        try {
+
+            if (
+                typeof fireworks ===
+                "function"
+            ) {
+
+                fireworks();
+
+            }
+
+        } catch (error) {
+
+            console.warn(
+                "Fireworks unavailable:",
+                error
+            );
+
+        }
+
+
+        /*
+         * Fade cinematic layer.
+         */
+
+        if (experience) {
+
+            experience.style.transition =
+                "opacity 1.8s ease";
+
+
+            experience.style.opacity =
+                "0";
+
+
+            experience.style.pointerEvents =
+                "none";
+
+
+            setTimeout(
+                function () {
+
+                    if (
+                        experience
+                    ) {
+
+                        experience.classList.add(
+                            "bx-hidden"
+                        );
+
+                    }
+
+                },
+                1900
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       INITIALIZE
+    ===================================================== */
+
+    function initialize() {
+
+        safeRun(
+            "scene CSS",
+            installSceneEngineCSS
+        );
+
+
+        safeRun(
+            "createExperience",
+            createExperience
+        );
+
+
+        if (!experience) {
+
+            return;
+
+        }
+
+
+        safeRun(
+            "buildStory",
+            buildStory
+        );
+
+
+        safeRun(
+            "buildLetter",
+            buildLetter
+        );
+
+
+        safeRun(
+            "buildGallery",
+            buildGallery
+        );
+
+
+        safeRun(
+            "setupMusic",
+            setupMusic
+        );
+
+
+        safeRun(
+            "setupStartButton",
+            setupStartButton
+        );
+
+
+        safeRun(
+            "setupLightbox",
+            setupLightbox
+        );
+
+
+        safeRun(
+            "setupKeyboard",
+            setupKeyboard
+        );
+
+
+        /*
+         * Videos.
+         */
+
+        safeRun(
+            "video1",
+            function () {
+
+                setupVideo(
+                    "bxVideo1",
+                    C.memoryVideo,
+                    false
+                );
+
+            }
+        );
+
+
+        safeRun(
+            "video2",
+            function () {
+
+                setupVideo(
+                    "bxVideo2",
+                    C.secondVideo,
+                    false
+                );
+
+            }
+        );
+
+
+        safeRun(
+            "finalVideo",
+            function () {
+
+                setupVideo(
+                    "bxFinalVideo",
+                    C.finalVideo,
+                    true
+                );
+
+            }
+        );
+
+
+        /*
+         * IMPORTANT:
+         *
+         * Intro is the ONLY active scene
+         * at initial load.
+         *
+         * No video is played here.
+         */
+
+        const allScenes =
+            getScenes();
+
+
+        allScenes.forEach(
+            function (scene) {
+
+                scene.classList.remove(
+                    "active"
+                );
+
+                scene.classList.remove(
+                    "exit"
+                );
+
+            }
+        );
+
+
+        const intro =
+            getScene(
+                "intro"
             );
 
 
@@ -2668,81 +3789,30 @@
             );
 
 
-            state.currentScene =
+            currentScene =
                 intro;
 
+
+            sceneIndex =
+                0;
+
+
+            updateProgress(
+                allScenes,
+                0
+            );
+
         }
 
 
-        /*
-         * Setup interactions.
-         */
-
-        setupStart();
-
-        setupPhotos();
-
-        setupVideos();
-
-        setupLightbox();
-
-
-        /*
-         * Ensure no video can autoplay
-         * before Start.
-         */
-
-        var videos =
-            root.querySelectorAll(
-                "video"
-            );
-
-
-        Array.prototype.forEach.call(
-            videos,
-            function (video) {
-
-                video.autoplay =
-                    false;
-
-                video.removeAttribute(
-                    "autoplay"
-                );
-
-            }
+        console.log(
+            "❤️ Cinematic Birthday Experience READY"
         );
 
 
         console.log(
-            "🎬 Cinematic Birthday Experience ready."
+            "👆 Waiting for Open Your Surprise..."
         );
-
-
-        console.log(
-            "👆 Waiting for START button."
-        );
-
-    }
-
-
-    /* =====================================================
-       SAFETY
-    ===================================================== */
-
-    function boot() {
-
-        try {
-
-            build();
-
-        } catch (error) {
-
-            console.error(
-                "Birthday cinematic boot error:",
-                error
-            );
-
-        }
 
     }
 
@@ -2758,12 +3828,12 @@
 
         document.addEventListener(
             "DOMContentLoaded",
-            boot
+            initialize
         );
 
     } else {
 
-        boot();
+        initialize();
 
     }
 
