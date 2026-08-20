@@ -1,30 +1,51 @@
 /* =========================================================
-   ❤️ CINEMATIC BIRTHDAY EXPERIENCE
-   COMPLETE + FAIL-SAFE VERSION
-   ========================================================= */
+   CINEMATIC BIRTHDAY EXPERIENCE
+   Stable Scene Engine
+   Compatible with:
+   - config.js
+   - cinematic.css
+   - existing garden.js
+   - existing fireworks.js
+   - existing functions.js
+
+   IMPORTANT:
+   Replace the COMPLETE old birthday-upgrade.js
+   with this file.
+========================================================= */
 
 (function () {
 
     "use strict";
 
+
     /* =====================================================
        CONFIG
-       Supports both:
-       const BIRTHDAY_CONFIG = {...}
-       and
-       window.BIRTHDAY_CONFIG
     ===================================================== */
 
-    const C =
-        (typeof BIRTHDAY_CONFIG !== "undefined")
-            ? BIRTHDAY_CONFIG
-            : window.BIRTHDAY_CONFIG;
+    var CONFIG = null;
+
+    try {
+
+        if (typeof BIRTHDAY_CONFIG !== "undefined") {
+            CONFIG = BIRTHDAY_CONFIG;
+        }
+
+    } catch (e) {}
 
 
-    if (!C) {
+    if (!CONFIG) {
+
+        try {
+            CONFIG = window.BIRTHDAY_CONFIG;
+        } catch (e) {}
+
+    }
+
+
+    if (!CONFIG) {
 
         console.error(
-            "❌ BIRTHDAY_CONFIG not found."
+            "Birthday Experience: BIRTHDAY_CONFIG not found."
         );
 
         return;
@@ -32,37 +53,67 @@
 
 
     /* =====================================================
-       GLOBAL STATE
+       STATE
     ===================================================== */
 
-    let music = null;
+    var state = {
 
-    let experience = null;
+        started: false,
 
-    let finalCelebrationStarted = false;
+        finished: false,
 
-    let currentVideo = null;
+        currentScene: null,
+
+        musicStarted: false,
+
+        videoPlaying: false,
+
+        finalRevealStarted: false,
+
+        locked: true
+
+    };
+
+
+    var root = null;
+
+    var music = null;
 
 
     /* =====================================================
-       UTILITY
+       HELPERS
     ===================================================== */
 
-    function hasPath(value) {
+    function exists(value) {
 
         return (
             typeof value === "string" &&
-            value.trim().length > 0
+            value.trim() !== ""
         );
 
     }
 
 
-    function escapeHTML(value) {
+    function safeArray(value) {
 
-        if (value === undefined || value === null) {
+        return Array.isArray(value)
+            ? value
+            : [];
+
+    }
+
+
+    function esc(value) {
+
+        if (
+            value === undefined ||
+            value === null
+        ) {
+
             return "";
+
         }
+
 
         return String(value)
             .replace(/&/g, "&amp;")
@@ -74,19 +125,34 @@
     }
 
 
+    function wait(ms) {
+
+        return new Promise(
+            function (resolve) {
+
+                setTimeout(
+                    resolve,
+                    ms
+                );
+
+            }
+        );
+
+    }
+
+
     /* =====================================================
-       CREATE MAIN EXPERIENCE
+       CSS SAFETY LAYER
+       
+       This is intentionally injected so the JS does not
+       depend on one particular version of cinematic.css.
     ===================================================== */
 
-    function createExperience() {
-
-        /*
-         * Prevent duplicate creation
-         */
+    function injectSafetyCSS() {
 
         if (
             document.getElementById(
-                "birthdayExperience"
+                "birthdaySafetyCSS"
             )
         ) {
 
@@ -95,150 +161,605 @@
         }
 
 
-        experience =
+        var style =
+            document.createElement("style");
+
+
+        style.id =
+            "birthdaySafetyCSS";
+
+
+        style.textContent = `
+
+            #birthdayExperience {
+                position: fixed !important;
+                inset: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                z-index: 99990 !important;
+                overflow: hidden !important;
+                background: #050308;
+                color: #fff;
+            }
+
+            #birthdayExperience .bx-scene {
+                position: absolute !important;
+                inset: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                opacity: 0 !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
+                transform: scale(1.02);
+                transition:
+                    opacity 900ms ease,
+                    transform 1200ms ease,
+                    visibility 900ms ease;
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            #birthdayExperience .bx-scene.active {
+                opacity: 1 !important;
+                visibility: visible !important;
+                pointer-events: auto !important;
+                transform: scale(1);
+                z-index: 5;
+            }
+
+            #birthdayExperience .bx-scene.exit {
+                opacity: 0 !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
+                transform: scale(.98);
+            }
+
+            #birthdayExperience .bx-stage {
+                min-height: 100%;
+                min-height: 100dvh;
+                width: 100%;
+                box-sizing: border-box;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding:
+                    60px
+                    24px;
+            }
+
+            #birthdayExperience .bx-inner {
+                width: min(1000px, 92vw);
+                margin: 0 auto;
+                text-align: center;
+            }
+
+            #birthdayExperience .bx-kicker {
+                font-size: 10px;
+                letter-spacing: 5px;
+                text-transform: uppercase;
+                opacity: .65;
+                margin-bottom: 24px;
+            }
+
+            #birthdayExperience h1 {
+                font-size:
+                    clamp(
+                        45px,
+                        9vw,
+                        105px
+                    );
+                line-height: .95;
+                margin: 0;
+                font-weight: 700;
+                letter-spacing: -3px;
+            }
+
+            #birthdayExperience h1 span {
+                color: #ff75bd;
+            }
+
+            #birthdayExperience h2 {
+                font-size:
+                    clamp(
+                        32px,
+                        6vw,
+                        70px
+                    );
+                line-height: 1;
+                margin: 0 0 25px;
+            }
+
+            #birthdayExperience p {
+                line-height: 1.9;
+            }
+
+            #birthdayExperience .bx-button {
+                appearance: none;
+                border: 1px solid rgba(255,255,255,.35);
+                background:
+                    linear-gradient(
+                        135deg,
+                        rgba(255,255,255,.14),
+                        rgba(255,95,175,.18)
+                    );
+                color: white;
+                padding: 16px 28px;
+                border-radius: 999px;
+                cursor: pointer;
+                letter-spacing: 2px;
+                font-size: 11px;
+                transition:
+                    transform .25s ease,
+                    background .25s ease;
+                margin-top: 28px;
+            }
+
+            #birthdayExperience .bx-button:hover {
+                transform: translateY(-3px);
+                background:
+                    linear-gradient(
+                        135deg,
+                        rgba(255,255,255,.22),
+                        rgba(255,95,175,.28)
+                    );
+            }
+
+            #birthdayExperience .bx-button:active {
+                transform: scale(.97);
+            }
+
+            #birthdayExperience .bx-text {
+                max-width: 700px;
+                margin: 0 auto;
+                color: rgba(255,255,255,.72);
+                font-size: 16px;
+            }
+
+            #birthdayExperience .bx-text p {
+                margin: 0 0 20px;
+            }
+
+            #birthdayExperience .bx-highlight {
+                color: #ff8ac8;
+                font-size: 19px;
+            }
+
+            #birthdayExperience .bx-gallery {
+                width: min(1000px, 94vw);
+                margin: 40px auto 0;
+                display: grid;
+                grid-template-columns:
+                    repeat(
+                        auto-fit,
+                        minmax(180px, 1fr)
+                    );
+                gap: 14px;
+            }
+
+            #birthdayExperience .bx-photo {
+                aspect-ratio: 1 / 1;
+                overflow: hidden;
+                border-radius: 18px;
+                cursor: pointer;
+                background: #111;
+                border:
+                    1px solid
+                    rgba(255,255,255,.1);
+            }
+
+            #birthdayExperience .bx-photo img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+                transition:
+                    transform .6s ease;
+            }
+
+            #birthdayExperience .bx-photo:hover img {
+                transform: scale(1.06);
+            }
+
+            #birthdayExperience .bx-video-wrap {
+                width: min(900px, 94vw);
+                margin: 35px auto 0;
+            }
+
+            #birthdayExperience video {
+                display: block;
+                width: 100%;
+                max-height: 72vh;
+                border-radius: 18px;
+                background: #000;
+                box-shadow:
+                    0 20px 70px
+                    rgba(0,0,0,.45);
+            }
+
+            #birthdayExperience .bx-video-note {
+                margin-top: 18px;
+                color: rgba(255,255,255,.45);
+                font-size: 10px;
+                letter-spacing: 2px;
+                text-transform: uppercase;
+            }
+
+            #birthdayExperience .bx-letter {
+                width: min(720px, 90vw);
+                margin: 0 auto;
+                text-align: left;
+                color: rgba(255,255,255,.76);
+                font-size: 17px;
+            }
+
+            #birthdayExperience .bx-letter p {
+                margin:
+                    0 0
+                    24px;
+            }
+
+            #birthdayExperience .bx-letter .special {
+                color: #ff8ac8;
+            }
+
+            #birthdayExperience .bx-final-message {
+                max-width: 650px;
+                margin: 35px auto;
+                color: rgba(255,255,255,.72);
+                font-size: 17px;
+            }
+
+            #birthdayExperience .bx-secret {
+                width: min(600px, 88vw);
+                margin: 45px auto 0;
+                padding: 30px;
+                border:
+                    1px solid
+                    rgba(255,255,255,.1);
+                border-radius: 22px;
+                background:
+                    rgba(255,255,255,.035);
+            }
+
+            #birthdayExperience .bx-secret strong {
+                color: #ff73bc;
+                letter-spacing: 3px;
+            }
+
+            #birthdayExperience .bx-secret p {
+                color: rgba(255,255,255,.7);
+            }
+
+            #birthdayExperience .bx-heart {
+                color: #ff6bb8;
+                font-size: 32px;
+                margin: 15px 0;
+                animation:
+                    birthdayPulse
+                    1.5s
+                    ease-in-out
+                    infinite;
+            }
+
+            #birthdayExperience .bx-secret small {
+                color: rgba(255,255,255,.42);
+                line-height: 1.8;
+            }
+
+            #birthdayExperience .bx-music {
+                position: fixed;
+                right: 20px;
+                top: 20px;
+                z-index: 100;
+                width: 42px;
+                height: 42px;
+                border-radius: 50%;
+                border:
+                    1px solid
+                    rgba(255,255,255,.18);
+                background:
+                    rgba(255,255,255,.07);
+                color: white;
+                cursor: pointer;
+            }
+
+            #birthdayExperience .bx-progress {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 2px;
+                width: 0;
+                z-index: 110;
+                background: #ff72bb;
+                transition: width .3s ease;
+            }
+
+            #birthdayExperience .bx-lightbox {
+                position: fixed;
+                inset: 0;
+                z-index: 200;
+                background:
+                    rgba(0,0,0,.94);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 30px;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                transition: opacity .3s ease;
+            }
+
+            #birthdayExperience .bx-lightbox.show {
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
+            }
+
+            #birthdayExperience .bx-lightbox img {
+                max-width: 94vw;
+                max-height: 90vh;
+                object-fit: contain;
+                border-radius: 12px;
+            }
+
+            #birthdayExperience .bx-close {
+                position: absolute;
+                right: 20px;
+                top: 20px;
+                width: 44px;
+                height: 44px;
+                border: 0;
+                border-radius: 50%;
+                background:
+                    rgba(255,255,255,.1);
+                color: white;
+                font-size: 28px;
+                cursor: pointer;
+            }
+
+            @keyframes birthdayPulse {
+                0%,100% {
+                    transform: scale(1);
+                }
+
+                50% {
+                    transform: scale(1.18);
+                }
+            }
+
+            @media(max-width:600px) {
+
+                #birthdayExperience .bx-stage {
+                    padding:
+                        50px
+                        18px;
+                }
+
+                #birthdayExperience .bx-letter {
+                    font-size: 15px;
+                }
+
+                #birthdayExperience .bx-gallery {
+                    grid-template-columns:
+                        repeat(2,1fr);
+                }
+
+            }
+
+        `;
+
+
+        document.head.appendChild(
+            style
+        );
+
+    }
+
+
+    /* =====================================================
+       CREATE ROOT
+    ===================================================== */
+
+    function createRoot() {
+
+        var old =
+            document.getElementById(
+                "birthdayExperience"
+            );
+
+
+        if (old) {
+
+            old.remove();
+
+        }
+
+
+        root =
             document.createElement("div");
 
-        experience.id =
+
+        root.id =
             "birthdayExperience";
 
 
-        experience.innerHTML = `
-
-            <div class="bx-noise"></div>
-
-            <div
-                class="bx-progress"
-                id="bxProgress">
-            </div>
+        root.setAttribute(
+            "aria-label",
+            "Birthday surprise"
+        );
 
 
-            <!-- =========================================
-                 MUSIC BUTTON
-            ========================================== -->
+        document.body.appendChild(
+            root
+        );
 
-            <button
-                class="bx-music"
-                id="bxMusic"
-                aria-label="Music">
-
-                🔇
-
-            </button>
+    }
 
 
-            <!-- =========================================
-                 INTRO
-            ========================================== -->
+    /* =====================================================
+       SCENE HTML
+    ===================================================== */
 
-            <section
-                class="bx-screen"
-                data-section="intro">
+    function scene(
+        id,
+        html
+    ) {
 
-                <div class="bx-center">
+        var el =
+            document.createElement(
+                "section"
+            );
 
-                    <div class="bx-label">
+
+        el.className =
+            "bx-scene";
+
+
+        el.id =
+            id;
+
+
+        el.innerHTML =
+            html;
+
+
+        root.appendChild(
+            el
+        );
+
+
+        return el;
+
+    }
+
+
+    /* =====================================================
+       BUILD INTRO
+    ===================================================== */
+
+    function buildIntro() {
+
+        return scene(
+            "bxSceneIntro",
+            `
+
+            <div class="bx-stage">
+
+                <div class="bx-inner">
+
+                    <div class="bx-kicker">
                         A LITTLE SOMETHING FOR YOU
                     </div>
 
-
-                    <h1 class="bx-intro-title">
+                    <h1>
 
                         Hey,
 
-                        <span id="bxIntroName">
-                            ${escapeHTML(C.name)}
+                        <br>
+
+                        <span>
+                            ${esc(CONFIG.name)}
                         </span>
 
                     </h1>
 
+                    <p class="bx-text"
+                       style="margin-top:30px;">
 
-                    <p class="bx-subtitle">
-
-                        ${escapeHTML(
-                            C.introSmallText ||
+                        ${esc(
+                            CONFIG.introSmallText ||
                             "I could have just wished you normally..."
                         )}
 
                         <br><br>
 
-                        <span>
-
-                            ${escapeHTML(
-                                C.introText ||
-                                "But you're not exactly a normal person to me."
-                            )}
-
-                        </span>
+                        ${esc(
+                            CONFIG.introText ||
+                            "But you're not exactly a normal person to me."
+                        )}
 
                     </p>
-
 
                     <button
                         class="bx-button"
-                        id="bxStart">
+                        id="bxStartButton">
 
-                        Open Your Surprise ✦
+                        OPEN YOUR SURPRISE ✦
 
                     </button>
 
-
-                    <p
+                    <div
                         style="
-                        color:#665b68;
+                        margin-top:24px;
                         font-size:10px;
-                        letter-spacing:2px;
-                        margin-top:25px;
+                        letter-spacing:3px;
+                        opacity:.4;
                         ">
 
-                        🔊 Turn your volume up
+                        🔊 TURN YOUR VOLUME UP
 
-                    </p>
+                    </div>
 
                 </div>
 
-            </section>
+            </div>
+
+            `
+        );
+
+    }
 
 
-            <!-- =========================================
-                 HERO
-            ========================================== -->
+    /* =====================================================
+       BUILD HERO
+    ===================================================== */
 
-            <section
-                class="bx-section"
-                data-section="hero">
+    function buildHero() {
 
-                <div class="bx-center">
+        return scene(
+            "bxSceneHero",
+            `
 
-                    <div class="bx-section-label">
+            <div class="bx-stage">
+
+                <div class="bx-inner">
+
+                    <div class="bx-kicker">
                         TODAY IS DIFFERENT
                     </div>
 
-
-                    <h1 class="bx-heading">
+                    <h1>
 
                         Happy
-                        <i>Birthday</i>
+
+                        <br>
+
+                        <span>
+                            Birthday
+                        </span>
 
                     </h1>
 
-
                     <div
-                        class="bx-hero-name"
                         style="
-                        font-size:clamp(30px,5vw,60px);
-                        color:#ffe1f1;
                         margin-top:35px;
+                        font-size:
+                        clamp(25px,5vw,55px);
                         ">
 
-                        ${escapeHTML(C.name)}
+                        ${esc(CONFIG.name)}
                         ❤️
 
                     </div>
 
+                    <p
+                        class="bx-text"
+                        style="margin-top:30px;">
 
-                    <p class="bx-subtitle">
-
-                        Some people enter your life normally...
+                        Some people enter your life
+                        normally...
 
                         <br><br>
 
@@ -250,67 +771,145 @@
 
                 </div>
 
-            </section>
+            </div>
+
+            `
+        );
+
+    }
 
 
-            <!-- =========================================
-                 STORY
-            ========================================== -->
+    /* =====================================================
+       BUILD STORY
+    ===================================================== */
 
-            <section
-                class="bx-section"
-                data-section="story">
+    function buildStory() {
 
-                <div class="bx-container">
+        var lines =
+            safeArray(
+                CONFIG.storyLines
+            );
 
-                    <div class="bx-section-label">
+
+        var html =
+            lines.map(
+                function (line, index) {
+
+                    return `
+                        <p
+                            class="${
+                                index ===
+                                lines.length - 1
+                                    ? "bx-highlight"
+                                    : ""
+                            }">
+
+                            ${esc(line)}
+
+                        </p>
+                    `;
+
+                }
+            ).join("");
+
+
+        return scene(
+            "bxSceneStory",
+            `
+
+            <div class="bx-stage">
+
+                <div class="bx-inner">
+
+                    <div class="bx-kicker">
                         01 — A LITTLE STORY
                     </div>
 
+                    <h2>
 
-                    <h2 class="bx-heading">
-
-                        ${escapeHTML(
-                            C.storyTitle ||
+                        ${esc(
+                            CONFIG.storyTitle ||
                             "This wasn't supposed to become this."
                         )}
 
                     </h2>
 
+                    <div class="bx-text">
 
-                    <div
-                        class="bx-text"
-                        id="bxStory">
+                        ${html}
 
                     </div>
 
                 </div>
 
-            </section>
+            </div>
+
+            `
+        );
+
+    }
 
 
-            <!-- =========================================
-                 PHOTO GALLERY
-            ========================================== -->
+    /* =====================================================
+       BUILD PHOTOS
+    ===================================================== */
 
-            <section
-                class="bx-section"
-                data-section="photos">
+    function buildPhotos() {
 
-                <div class="bx-container">
+        var photos =
+            safeArray(
+                CONFIG.photos
+            );
 
-                    <div class="bx-section-label">
+
+        var cards = "";
+
+
+        photos.forEach(
+            function (path, index) {
+
+                if (!exists(path)) {
+                    return;
+                }
+
+
+                cards += `
+
+                    <div
+                        class="bx-photo"
+                        data-photo="${esc(path)}">
+
+                        <img
+                            src="${esc(path)}"
+                            alt="Memory ${index + 1}"
+                            loading="lazy">
+
+                    </div>
+
+                `;
+
+            }
+        );
+
+
+        return scene(
+            "bxScenePhotos",
+            `
+
+            <div class="bx-stage">
+
+                <div class="bx-inner">
+
+                    <div class="bx-kicker">
                         02 — LITTLE MOMENTS
                     </div>
 
-
-                    <h2 class="bx-heading">
+                    <h2>
 
                         Things worth
-                        <i>remembering.</i>
+                        <span>remembering.</span>
 
                     </h2>
-
 
                     <p class="bx-text">
 
@@ -324,119 +923,142 @@
 
                     </p>
 
-
                     <div
                         class="bx-gallery"
                         id="bxGallery">
 
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- =========================================
-                 VIDEO 1
-            ========================================== -->
-
-            <section
-                class="bx-section bx-video-section"
-                data-section="video1">
-
-                <div class="bx-container">
-
-                    <div class="bx-section-label">
-                        03 — PRESS PLAY
-                    </div>
-
-
-                    <h2 class="bx-heading">
-
-                        Some moments
-                        deserve <i>motion.</i>
-
-                    </h2>
-
-
-                    <div class="bx-video">
-
-                        <video
-                            id="bxVideo1"
-                            controls
-                            playsinline
-                            preload="metadata">
-
-                            <source
-                                src=""
-                                type="video/mp4">
-
-                        </video>
+                        ${cards}
 
                     </div>
 
                 </div>
 
-            </section>
+            </div>
+
+            `
+        );
+
+    }
 
 
-            <!-- =========================================
-                 INTERLUDE
-            ========================================== -->
+    /* =====================================================
+       BUILD VIDEO SCENE
+    ===================================================== */
 
-            <section
-                class="bx-section bx-interlude"
-                data-section="interlude">
+    function buildVideo(
+        id,
+        number,
+        title,
+        path,
+        finalVideo
+    ) {
 
-                <div class="bx-center">
+        var section =
+            scene(
+                id,
+                `
 
-                    <div class="bx-label">
-                        WAIT...
+                <div class="bx-stage">
+
+                    <div class="bx-inner">
+
+                        <div class="bx-kicker">
+                            ${esc(number)}
+                        </div>
+
+                        <h2>
+                            ${esc(title)}
+                        </h2>
+
+                        <div
+                            class="bx-video-wrap">
+
+                            <video
+                                playsinline
+                                controls
+                                preload="metadata"
+                                data-video-path="${esc(
+                                    path || ""
+                                )}"
+                                data-final="${
+                                    finalVideo
+                                        ? "1"
+                                        : "0"
+                                }">
+
+                                <source
+                                    src="${esc(
+                                        path || ""
+                                    )}"
+                                    type="video/mp4">
+
+                            </video>
+
+                        </div>
+
+                        <div class="bx-video-note">
+                            ${finalVideo
+                                ? "THE LAST SURPRISE"
+                                : "PRESS PLAY"}
+                        </div>
+
                     </div>
-
-
-                    <h2>
-
-                        You thought
-                        <br>
-
-                        <span>
-                            that was it?
-                        </span>
-
-                    </h2>
-
-
-                    <p
-                        style="
-                        color:#766a77;
-                        margin-top:35px;
-                        letter-spacing:4px;
-                        ">
-
-                        Not quite.
-
-                    </p>
 
                 </div>
 
-            </section>
+                `
+            );
 
 
-            <!-- =========================================
-                 LETTER
-            ========================================== -->
+        return section;
 
-            <section
-                class="bx-section"
-                data-section="letter">
+    }
 
-                <div class="bx-container">
 
-                    <div class="bx-section-label">
+    /* =====================================================
+       BUILD LETTER
+    ===================================================== */
+
+    function buildLetter() {
+
+        var lines =
+            safeArray(
+                CONFIG.letter
+            );
+
+
+        var html =
+            lines.map(
+                function (line, index) {
+
+                    return `
+                        <p class="${
+                            index ===
+                            lines.length - 1
+                                ? "special"
+                                : ""
+                        }">
+
+                            ${esc(line)}
+
+                        </p>
+                    `;
+
+                }
+            ).join("");
+
+
+        return scene(
+            "bxSceneLetter",
+            `
+
+            <div class="bx-stage">
+
+                <div class="bx-inner">
+
+                    <div class="bx-kicker">
                         04 — SOMETHING I WANTED TO SAY
                     </div>
-
 
                     <div class="bx-letter">
 
@@ -444,23 +1066,17 @@
 
                             Hey
                             <span>
-                                ${escapeHTML(C.name)}
+                                ${esc(CONFIG.name)}
                             </span>,
 
                         </h2>
 
-
-                        <div
-                            id="bxLetter">
-
-                        </div>
-
+                        ${html}
 
                         <div
                             style="
-                            margin-top:60px;
-                            color:#7d717d;
-                            line-height:1.8;
+                            margin-top:50px;
+                            opacity:.7;
                             ">
 
                             — Someone who may like you
@@ -469,7 +1085,7 @@
 
                             <span
                                 style="
-                                color:#ff73c2;
+                                color:#ff73bc;
                                 ">
 
                                 a little more than he should. ♥
@@ -482,111 +1098,31 @@
 
                 </div>
 
-            </section>
+            </div>
+
+            `
+        );
+
+    }
 
 
-            <!-- =========================================
-                 VIDEO 2
-            ========================================== -->
+    /* =====================================================
+       BUILD FINAL MESSAGE
+    ===================================================== */
 
-            <section
-                class="bx-section bx-video-section"
-                data-section="video2">
+    function buildFinal() {
 
-                <div class="bx-container">
+        return scene(
+            "bxSceneFinal",
+            `
 
-                    <div class="bx-section-label">
-                        05 — ONE MORE THING
-                    </div>
+            <div class="bx-stage">
 
+                <div class="bx-inner">
 
-                    <h2 class="bx-heading">
-
-                        Okay...
-                        <i>one more.</i>
-
-                    </h2>
-
-
-                    <div class="bx-video">
-
-                        <video
-                            id="bxVideo2"
-                            controls
-                            playsinline
-                            preload="metadata">
-
-                            <source
-                                src=""
-                                type="video/mp4">
-
-                        </video>
-
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- =========================================
-                 FINAL VIDEO
-            ========================================== -->
-
-            <section
-                class="bx-section bx-video-section"
-                data-section="finalVideo">
-
-                <div class="bx-container">
-
-                    <div class="bx-section-label">
-                        06 — THE LAST SURPRISE
-                    </div>
-
-
-                    <h2 class="bx-heading">
-
-                        This one's
-                        <i>just for you.</i>
-
-                    </h2>
-
-
-                    <div class="bx-video">
-
-                        <video
-                            id="bxFinalVideo"
-                            controls
-                            playsinline
-                            preload="metadata">
-
-                            <source
-                                src=""
-                                type="video/mp4">
-
-                        </video>
-
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- =========================================
-                 FINAL
-            ========================================== -->
-
-            <section
-                class="bx-section bx-final"
-                data-section="final">
-
-                <div class="bx-center">
-
-                    <div class="bx-label">
+                    <div class="bx-kicker">
                         AND FINALLY...
                     </div>
-
 
                     <h1>
 
@@ -600,24 +1136,25 @@
 
                     </h1>
 
+                    <div
+                        style="
+                        margin-top:30px;
+                        font-size:
+                        clamp(25px,5vw,55px);
+                        ">
 
-                    <div class="bx-final-name">
-
-                        ${escapeHTML(C.name)}
+                        ${esc(CONFIG.name)}
                         ❤️
 
                     </div>
 
-
                     <p class="bx-final-message">
 
-                        ${escapeHTML(
-                            C.finalMessage ||
-                            ""
+                        ${esc(
+                            CONFIG.finalMessage || ""
                         )}
 
                     </p>
-
 
                     <div class="bx-secret">
 
@@ -625,298 +1162,613 @@
                             P.S.
                         </strong>
 
-
                         <p>
-                            ${escapeHTML(
-                                C.finalSecret ||
-                                ""
-                            )}
-                        </p>
 
+                            ${esc(
+                                CONFIG.finalSecret || ""
+                            )}
+
+                        </p>
 
                         <div class="bx-heart">
                             ♥
                         </div>
 
-
                         <small>
-                            ${escapeHTML(
-                                C.finalFooter ||
-                                ""
+
+                            ${esc(
+                                CONFIG.finalFooter || ""
                             )}
+
                         </small>
 
                     </div>
 
-
-                    <p
-                        style="
-                        margin-top:60px;
-                        color:#514852;
-                        font-size:9px;
-                        letter-spacing:2px;
-                        line-height:2;
-                        ">
-
-                        Made with a little too much effort
-
-                        <br>
-
-                        and probably a little too much affection.
-
-                    </p>
-
                 </div>
 
-            </section>
-
-
-            <!-- =========================================
-                 LIGHTBOX
-            ========================================== -->
-
-            <div
-                class="bx-lightbox"
-                id="bxLightbox">
-
-                <button
-                    class="bx-close"
-                    id="bxClose">
-
-                    ×
-
-                </button>
-
-
-                <img
-                    id="bxLightboxImage"
-                    src=""
-                    alt="Memory">
-
             </div>
+
+            `
+        );
+
+    }
+
+
+    /* =====================================================
+       BUILD LIGHTBOX
+    ===================================================== */
+
+    function buildLightbox() {
+
+        var el =
+            document.createElement(
+                "div"
+            );
+
+
+        el.className =
+            "bx-lightbox";
+
+
+        el.id =
+            "bxLightbox";
+
+
+        el.innerHTML = `
+
+            <button
+                class="bx-close"
+                id="bxLightboxClose">
+
+                ×
+
+            </button>
+
+            <img
+                id="bxLightboxImage"
+                alt="Memory">
 
         `;
 
 
-        document.body.appendChild(
-            experience
+        root.appendChild(
+            el
         );
 
     }
 
 
     /* =====================================================
-       STORY
+       BUILD MUSIC
     ===================================================== */
 
-    function buildStory() {
+    function buildMusic() {
 
-        const box =
-            document.getElementById(
-                "bxStory"
+        var button =
+            document.createElement(
+                "button"
             );
 
 
-        if (!box) return;
+        button.className =
+            "bx-music";
 
 
-        const lines =
-            Array.isArray(C.storyLines)
-                ? C.storyLines
-                : [];
+        button.id =
+            "bxMusicButton";
 
 
-        if (!lines.length) {
+        button.textContent =
+            "🔇";
 
-            box.innerHTML = "";
+
+        button.setAttribute(
+            "aria-label",
+            "Music"
+        );
+
+
+        root.appendChild(
+            button
+        );
+
+
+        if (!exists(CONFIG.music)) {
 
             return;
+
         }
 
 
-        lines.forEach(
-            function (text, index) {
-
-                const p =
-                    document.createElement(
-                        "p"
-                    );
-
-
-                p.textContent =
-                    text;
-
-
-                if (
-                    index ===
-                    lines.length - 1
-                ) {
-
-                    p.className =
-                        "bx-highlight";
-
-                }
-
-
-                box.appendChild(p);
-
-            }
-        );
-
-    }
-
-
-    /* =====================================================
-       LETTER
-    ===================================================== */
-
-    function buildLetter() {
-
-        const box =
-            document.getElementById(
-                "bxLetter"
+        music =
+            document.createElement(
+                "audio"
             );
 
 
-        if (!box) return;
+        music.id =
+            "birthdayMusic";
 
 
-        const lines =
-            Array.isArray(C.letter)
-                ? C.letter
-                : [];
+        music.src =
+            CONFIG.music;
 
 
-        lines.forEach(
-            function (text, index) {
-
-                const p =
-                    document.createElement(
-                        "p"
-                    );
+        music.loop =
+            true;
 
 
-                p.textContent =
-                    text;
+        music.preload =
+            "auto";
 
 
-                if (
-                    text ===
-                    "You just became special."
-                ) {
-
-                    p.className =
-                        "special";
-
-                }
-
-
-                if (
-                    index ===
-                    lines.length - 1
-                ) {
-
-                    p.className =
-                        "special";
-
-                }
-
-
-                box.appendChild(p);
-
-            }
-        );
-
-    }
-
-
-    /* =====================================================
-       PHOTO GALLERY
-       MISSING PHOTO = SKIP
-    ===================================================== */
-
-    function buildGallery() {
-
-        const gallery =
-            document.getElementById(
-                "bxGallery"
-            );
-
-
-        if (!gallery) return;
-
-
-        const photos =
-            Array.isArray(C.photos)
-                ? C.photos
-                : [];
-
-
-        if (!photos.length) {
-
-            hideSection(
-                gallery.closest(
-                    ".bx-section"
+        music.volume =
+            typeof CONFIG.musicVolume ===
+            "number"
+                ? Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        CONFIG.musicVolume
+                    )
                 )
-            );
-
-            return;
-
-        }
+                : .45;
 
 
-        photos.forEach(
-            function (photo, index) {
+        music.addEventListener(
+            "error",
+            function () {
 
-                if (!hasPath(photo)) {
+                console.warn(
+                    "Birthday music unavailable."
+                );
+
+            },
+            {
+                once: true
+            }
+        );
+
+
+        root.appendChild(
+            music
+        );
+
+
+        button.addEventListener(
+            "click",
+            function () {
+
+                if (!music) {
                     return;
                 }
 
 
-                const wrapper =
-                    document.createElement(
-                        "div"
+                if (music.paused) {
+
+                    safePlayMusic();
+
+                } else {
+
+                    music.pause();
+
+                    button.textContent =
+                        "🔇";
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       MUSIC
+    ===================================================== */
+
+    function safePlayMusic() {
+
+        if (!music) {
+            return;
+        }
+
+
+        try {
+
+            var promise =
+                music.play();
+
+
+            if (
+                promise &&
+                typeof promise.catch ===
+                "function"
+            ) {
+
+                promise.catch(
+                    function () {
+
+                        console.warn(
+                            "Music autoplay blocked."
+                        );
+
+                    }
+                );
+
+            }
+
+
+            var button =
+                document.getElementById(
+                    "bxMusicButton"
+                );
+
+
+            if (button) {
+
+                button.textContent =
+                    "🎵";
+
+            }
+
+
+            state.musicStarted =
+                true;
+
+        } catch (error) {
+
+            console.warn(
+                "Music could not start.",
+                error
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       SCENE MANAGEMENT
+    ===================================================== */
+
+    function getScenes() {
+
+        return Array.prototype.slice.call(
+            root.querySelectorAll(
+                ".bx-scene"
+            )
+        );
+
+    }
+
+
+    function showScene(
+        target
+    ) {
+
+        if (!target) {
+            return;
+        }
+
+
+        var scenes =
+            getScenes();
+
+
+        scenes.forEach(
+            function (sceneEl) {
+
+                if (
+                    sceneEl ===
+                    target
+                ) {
+
+                    sceneEl.classList.remove(
+                        "exit"
                     );
 
-
-                wrapper.className =
-                    "bx-photo";
-
-
-                const img =
-                    document.createElement(
-                        "img"
+                    sceneEl.classList.add(
+                        "active"
                     );
 
+                } else {
 
-                img.src =
-                    photo;
+                    if (
+                        sceneEl.classList.contains(
+                            "active"
+                        )
+                    ) {
 
-                img.alt =
-                    "Memory " +
-                    (index + 1);
+                        sceneEl.classList.remove(
+                            "active"
+                        );
 
-                img.loading =
-                    "lazy";
+                        sceneEl.classList.add(
+                            "exit"
+                        );
+
+                    } else {
+
+                        sceneEl.classList.remove(
+                            "active"
+                        );
+
+                    }
+
+                }
+
+            }
+        );
 
 
-                /*
-                 * IMAGE ERROR
-                 */
+        state.currentScene =
+            target;
+
+
+        /*
+         * Reset scroll of target scene
+         */
+
+        try {
+
+            target.scrollTop =
+                0;
+
+        } catch (e) {}
+
+
+        /*
+         * Progress
+         */
+
+        updateProgress();
+
+    }
+
+
+    function showSceneById(id) {
+
+        var target =
+            document.getElementById(id);
+
+
+        if (!target) {
+            return false;
+        }
+
+
+        showScene(target);
+
+        return true;
+
+    }
+
+
+    /* =====================================================
+       NEXT SCENE
+    ===================================================== */
+
+    function nextScene() {
+
+        var scenes =
+            getScenes();
+
+
+        var index =
+            scenes.indexOf(
+                state.currentScene
+            );
+
+
+        if (index < 0) {
+            return;
+        }
+
+
+        var next =
+            scenes[index + 1];
+
+
+        if (!next) {
+
+            finishExperience();
+
+            return;
+
+        }
+
+
+        /*
+         * If next scene has been marked
+         * as skipped, continue.
+         */
+
+        if (
+            next.dataset.skip ===
+            "true"
+        ) {
+
+            state.currentScene =
+                next;
+
+
+            nextScene();
+
+            return;
+
+        }
+
+
+        showScene(next);
+
+    }
+
+
+    /* =====================================================
+       PROGRESS
+    ===================================================== */
+
+    function updateProgress() {
+
+        var scenes =
+            getScenes();
+
+
+        var current =
+            scenes.indexOf(
+                state.currentScene
+            );
+
+
+        if (current < 0) {
+            return;
+        }
+
+
+        var percent =
+            scenes.length > 1
+                ? (
+                    current /
+                    (scenes.length - 1)
+                ) * 100
+                : 0;
+
+
+        var old =
+            document.getElementById(
+                "bxProgress"
+            );
+
+
+        if (!old) {
+
+            var bar =
+                document.createElement(
+                    "div"
+                );
+
+
+            bar.id =
+                "bxProgress";
+
+
+            bar.style.position =
+                "fixed";
+
+
+            bar.style.top =
+                "0";
+
+
+            bar.style.left =
+                "0";
+
+
+            bar.style.height =
+                "2px";
+
+
+            bar.style.zIndex =
+                "100";
+
+
+            bar.style.background =
+                "#ff72bb";
+
+
+            bar.style.transition =
+                "width .5s ease";
+
+
+            root.appendChild(
+                bar
+            );
+
+
+            old =
+                bar;
+
+        }
+
+
+        old.style.width =
+            percent + "%";
+
+    }
+
+
+    /* =====================================================
+       START EXPERIENCE
+    ===================================================== */
+
+    function startExperience() {
+
+        if (state.started) {
+            return;
+        }
+
+
+        state.started =
+            true;
+
+
+        state.locked =
+            false;
+
+
+        /*
+         * Start music only NOW.
+         */
+
+        safePlayMusic();
+
+
+        /*
+         * First cinematic scene.
+         */
+
+        showSceneById(
+            "bxSceneHero"
+        );
+
+    }
+
+
+    /* =====================================================
+       PHOTO SAFETY
+    ===================================================== */
+
+    function setupPhotos() {
+
+        var images =
+            root.querySelectorAll(
+                ".bx-photo img"
+            );
+
+
+        Array.prototype.forEach.call(
+            images,
+            function (img) {
 
                 img.addEventListener(
                     "error",
                     function () {
 
-                        console.warn(
-                            "⚠️ Photo skipped:",
-                            photo
-                        );
+                        var card =
+                            img.closest(
+                                ".bx-photo"
+                            );
 
 
-                        wrapper.remove();
+                        if (card) {
 
-                        checkGalleryEmpty();
+                            card.remove();
+
+                        }
+
+
+                        checkPhotoScene();
 
                     },
                     {
@@ -925,51 +1777,48 @@
                 );
 
 
-                /*
-                 * IMAGE CLICK
-                 */
-
-                wrapper.addEventListener(
+                img.addEventListener(
                     "click",
                     function () {
 
                         openLightbox(
-                            photo
+                            img.src
                         );
 
                     }
-                );
-
-
-                wrapper.appendChild(
-                    img
-                );
-
-
-                gallery.appendChild(
-                    wrapper
                 );
 
             }
         );
 
 
-        checkGalleryEmpty();
+        checkPhotoScene();
+
+    }
 
 
-        function checkGalleryEmpty() {
+    function checkPhotoScene() {
 
-            if (
-                gallery.children.length === 0
-            ) {
+        var gallery =
+            document.getElementById(
+                "bxGallery"
+            );
 
-                hideSection(
-                    gallery.closest(
-                        ".bx-section"
-                    )
-                );
 
-            }
+        if (!gallery) {
+            return;
+        }
+
+
+        if (
+            gallery.querySelectorAll(
+                ".bx-photo"
+            ).length === 0
+        ) {
+
+            skipScene(
+                "bxScenePhotos"
+            );
 
         }
 
@@ -982,18 +1831,19 @@
 
     function openLightbox(src) {
 
-        const lightbox =
+        var box =
             document.getElementById(
                 "bxLightbox"
             );
 
-        const image =
+
+        var image =
             document.getElementById(
                 "bxLightboxImage"
             );
 
 
-        if (!lightbox || !image) {
+        if (!box || !image) {
             return;
         }
 
@@ -1002,7 +1852,7 @@
             src;
 
 
-        lightbox.classList.add(
+        box.classList.add(
             "show"
         );
 
@@ -1011,164 +1861,78 @@
 
     function closeLightbox() {
 
-        const lightbox =
+        var box =
             document.getElementById(
                 "bxLightbox"
             );
 
 
-        if (!lightbox) return;
+        if (box) {
 
-
-        lightbox.classList.remove(
-            "show"
-        );
-
-    }
-
-
-    /* =====================================================
-       HIDE SECTION
-    ===================================================== */
-
-    function hideSection(section) {
-
-        if (!section) return;
-
-
-        section.dataset.skipped =
-            "true";
-
-
-        section.style.display =
-            "none";
-
-    }
-
-
-    /* =====================================================
-       FIND NEXT VISIBLE SECTION
-    ===================================================== */
-
-    function getNextSection(section) {
-
-        if (!section) return null;
-
-
-        let next =
-            section.nextElementSibling;
-
-
-        while (next) {
-
-            if (
-                next.classList &&
-                next.classList.contains(
-                    "bx-section"
-                ) &&
-                next.style.display !==
-                    "none"
-            ) {
-
-                return next;
-
-            }
-
-
-            next =
-                next.nextElementSibling;
+            box.classList.remove(
+                "show"
+            );
 
         }
 
-
-        return null;
-
     }
 
 
     /* =====================================================
-       GO NEXT
+       VIDEO HANDLING
+       
+       IMPORTANT:
+       A missing video NEVER blocks the sequence.
     ===================================================== */
 
-    function goNextSection(element) {
+    function setupVideos() {
 
-        const section =
-            element &&
-            element.closest
-                ? element.closest(
-                    ".bx-section"
-                )
-                : null;
-
-
-        if (!section) return;
-
-
-        const next =
-            getNextSection(
-                section
+        var videos =
+            root.querySelectorAll(
+                "video"
             );
 
 
-        if (!next) return;
+        Array.prototype.forEach.call(
+            videos,
+            function (video) {
 
+                setupOneVideo(
+                    video
+                );
 
-        setTimeout(
-            function () {
-
-                next.scrollIntoView({
-                    behavior:
-                        "smooth",
-                    block:
-                        "start"
-                });
-
-            },
-            500
+            }
         );
 
     }
 
 
-    /* =====================================================
-       VIDEO SETUP
-       MISSING VIDEO = AUTOMATIC SKIP
-    ===================================================== */
+    function setupOneVideo(video) {
 
-    function setupVideo(
-        videoId,
-        path,
-        isFinal
-    ) {
-
-        const video =
-            document.getElementById(
-                videoId
+        var sceneEl =
+            video.closest(
+                ".bx-scene"
             );
 
 
-        if (!video) return;
+        if (!sceneEl) {
+            return;
+        }
 
 
-        const section =
-            video.closest(
-                ".bx-section"
+        var path =
+            video.getAttribute(
+                "data-video-path"
             );
 
 
         /*
-         * No path
+         * Empty path
          */
 
-        if (!hasPath(path)) {
+        if (!exists(path)) {
 
-            console.warn(
-                "⚠️ Video path empty:",
-                videoId
-            );
-
-
-            skipVideoSection(
+            skipVideoScene(
                 video,
                 "empty path"
             );
@@ -1178,64 +1942,36 @@
         }
 
 
-        const source =
-            video.querySelector(
-                "source"
-            );
-
-
-        if (!source) {
-
-            skipVideoSection(
-                video,
-                "source element missing"
-            );
-
-            return;
-
-        }
-
-
-        /*
-         * Set source
-         */
-
-        source.src =
-            path;
-
-
-        video.load();
-
-
-        /*
-         * Prevent duplicate ending
-         */
-
-        let finished =
+        var finished =
             false;
 
 
         /*
-         * VIDEO ERROR
+         * ERROR
          */
+
+        function onError() {
+
+            if (finished) {
+                return;
+            }
+
+
+            finished =
+                true;
+
+
+            skipVideoScene(
+                video,
+                "load error"
+            );
+
+        }
+
 
         video.addEventListener(
             "error",
-            function () {
-
-                if (finished) return;
-
-
-                finished =
-                    true;
-
-
-                skipVideoSection(
-                    video,
-                    "video load error"
-                );
-
-            },
+            onError,
             {
                 once: true
             }
@@ -1243,92 +1979,70 @@
 
 
         /*
-         * SOURCE ERROR
-         */
-
-        source.addEventListener(
-            "error",
-            function () {
-
-                if (finished) return;
-
-
-                finished =
-                    true;
-
-
-                skipVideoSection(
-                    video,
-                    "source error"
-                );
-
-            },
-            {
-                once: true
-            }
-        );
-
-
-        /*
-         * VIDEO ENDED
+         * ENDED
          */
 
         video.addEventListener(
             "ended",
             function () {
 
-                if (finished) return;
+                if (finished) {
+                    return;
+                }
 
 
                 finished =
                     true;
 
 
-                currentVideo =
-                    null;
+                state.videoPlaying =
+                    false;
+
+
+                var isFinal =
+                    video.getAttribute(
+                        "data-final"
+                    ) === "1";
 
 
                 if (isFinal) {
 
-                    launchFinalCelebration();
+                    finishExperience();
 
-                    return;
+                } else {
+
+                    nextScene();
 
                 }
-
-
-                goNextSection(
-                    video
-                );
 
             }
         );
 
 
         /*
-         * VIDEO PLAY
+         * PLAY
          */
 
         video.addEventListener(
             "play",
             function () {
 
-                currentVideo =
-                    video;
+                state.videoPlaying =
+                    true;
 
 
                 /*
-                 * Pause every other
-                 * birthday video
+                 * Pause all other videos.
                  */
 
-                const allVideos =
-                    experience.querySelectorAll(
+                var all =
+                    root.querySelectorAll(
                         "video"
                     );
 
 
-                allVideos.forEach(
+                Array.prototype.forEach.call(
+                    all,
                     function (other) {
 
                         if (
@@ -1349,77 +2063,76 @@
         );
 
 
-        /*
-         * NETWORK STALL
-         *
-         * Temporary stall is allowed.
-         * Only permanently unavailable
-         * video gets skipped.
-         */
-
-        let stallTimer =
-            null;
-
-
         video.addEventListener(
-            "stalled",
+            "pause",
             function () {
 
-                if (stallTimer) {
-                    clearTimeout(
-                        stallTimer
-                    );
-                }
-
-
-                stallTimer =
-                    setTimeout(
-                        function () {
-
-                            if (
-                                !finished &&
-                                video.readyState <
-                                    2
-                            ) {
-
-                                finished =
-                                    true;
-
-
-                                skipVideoSection(
-                                    video,
-                                    "network timeout"
-                                );
-
-                            }
-
-                        },
-                        7000
-                    );
+                state.videoPlaying =
+                    false;
 
             }
         );
 
 
         /*
-         * CAN PLAY
+         * If browser cannot load
+         * source, skip after short delay.
          */
+
+        var timeout =
+            setTimeout(
+                function () {
+
+                    if (
+                        !finished &&
+                        video.readyState === 0
+                    ) {
+
+                        /*
+                         * Don't blindly skip if
+                         * browser has not attempted
+                         * network yet.
+                         */
+
+                        try {
+
+                            video.load();
+
+                        } catch (e) {}
+
+                    }
+
+                },
+                1500
+            );
+
+
+        video.addEventListener(
+            "loadedmetadata",
+            function () {
+
+                clearTimeout(
+                    timeout
+                );
+
+            },
+            {
+                once: true
+            }
+        );
+
 
         video.addEventListener(
             "canplay",
             function () {
 
-                if (stallTimer) {
+                clearTimeout(
+                    timeout
+                );
 
-                    clearTimeout(
-                        stallTimer
-                    );
-
-                    stallTimer =
-                        null;
-
-                }
-
+            },
+            {
+                once: true
             }
         );
 
@@ -1430,103 +2143,73 @@
        SKIP VIDEO
     ===================================================== */
 
-    function skipVideoSection(
+    function skipVideoScene(
         video,
         reason
     ) {
 
         console.warn(
-            "⏭️ Skipping video:",
-            reason
+            "Skipping video:",
+            reason,
+            video
+                ? video.getAttribute(
+                    "data-video-path"
+                )
+                : ""
         );
 
 
-        if (!video) return;
+        var sceneEl =
+            video
+                ? video.closest(
+                    ".bx-scene"
+                )
+                : null;
 
 
-        const section =
-            video.closest(
-                ".bx-section"
-            );
+        if (!sceneEl) {
+            return;
+        }
 
 
         /*
-         * Stop video safely
+         * Mark skipped.
+         */
+
+        sceneEl.dataset.skip =
+            "true";
+
+
+        /*
+         * Stop video.
          */
 
         try {
 
             video.pause();
 
-            video.removeAttribute(
-                "src"
-            );
-
-            const source =
-                video.querySelector(
-                    "source"
-                );
-
-
-            if (source) {
-
-                source.removeAttribute(
-                    "src"
-                );
-
-            }
-
-
-            video.load();
-
-        } catch (e) {
-
-            console.warn(
-                "Video cleanup:",
-                e
-            );
-
-        }
+        } catch (e) {}
 
 
         /*
-         * Hide complete section
+         * Hide scene.
          */
 
-        if (section) {
-
-            hideSection(
-                section
-            );
+        sceneEl.style.display =
+            "none";
 
 
-            /*
-             * Continue automatically
-             */
+        /*
+         * If this scene is currently
+         * active, automatically move on.
+         */
 
-            const next =
-                getNextSection(
-                    section
-                );
+        if (
+            state.currentScene ===
+            sceneEl
+        ) {
 
-
-            if (next) {
-
-                setTimeout(
-                    function () {
-
-                        next.scrollIntoView({
-                            behavior:
-                                "smooth",
-                            block:
-                                "start"
-                        });
-
-                    },
-                    600
-                );
-
-            }
+            nextScene();
 
         }
 
@@ -1534,187 +2217,239 @@
 
 
     /* =====================================================
-       MUSIC
-       MISSING MUSIC NEVER BREAKS PAGE
+       FINAL EXPERIENCE
     ===================================================== */
 
-    function setupMusic() {
+    function finishExperience() {
 
         if (
-            !hasPath(C.music)
+            state.finished
         ) {
-
-            console.warn(
-                "ℹ️ No music configured."
-            );
 
             return;
 
         }
 
 
-        music =
-            document.createElement(
-                "audio"
-            );
-
-
-        music.id =
-            "birthdayMusic";
-
-
-        music.src =
-            C.music;
-
-
-        music.loop =
+        state.finished =
             true;
 
 
-        music.preload =
-            "auto";
-
-
-        music.volume =
-            typeof C.musicVolume ===
-            "number"
-                ? Math.max(
-                    0,
-                    Math.min(
-                        1,
-                        C.musicVolume
-                    )
-                )
-                : 0.45;
+        state.finalRevealStarted =
+            true;
 
 
         /*
-         * MUSIC ERROR
+         * Stop any cinematic videos.
          */
 
-        music.addEventListener(
-            "error",
-            function () {
-
-                console.warn(
-                    "⚠️ Music unavailable. Continuing without music."
-                );
-
-            },
-            {
-                once: true
-            }
-        );
-
-
-        document.body.appendChild(
-            music
-        );
-
-
-        /*
-         * BUTTON
-         */
-
-        const button =
-            document.getElementById(
-                "bxMusic"
+        var videos =
+            root.querySelectorAll(
+                "video"
             );
 
 
-        if (!button) return;
+        Array.prototype.forEach.call(
+            videos,
+            function (video) {
 
-
-        button.addEventListener(
-            "click",
-            function () {
-
-                if (!music) return;
-
-
-                if (
-                    music.paused
-                ) {
-
-                    playMusic();
-
-                } else {
-
-                    music.pause();
-
-                    button.textContent =
-                        "🔇";
-
-                }
+                try {
+                    video.pause();
+                } catch (e) {}
 
             }
+        );
+
+
+        /*
+         * Music can continue during
+         * final reveal.
+         */
+
+
+        /*
+         * Hide cinematic overlay.
+         */
+
+        setTimeout(
+            function () {
+
+                revealOriginalBirthday();
+
+            },
+            600
         );
 
     }
 
 
     /* =====================================================
-       SAFE MUSIC PLAY
+       ORIGINAL PAGE REVEAL
+       
+       We don't destroy garden.js/fireworks.js.
+       We simply reveal the original page.
     ===================================================== */
 
-    function playMusic() {
+    function revealOriginalBirthday() {
 
-        if (!music) return;
-
-
-        const button =
-            document.getElementById(
-                "bxMusic"
-            );
-
+        /*
+         * Try existing original page.
+         */
 
         try {
 
-            const promise =
-                music.play();
-
-
-            if (
-                promise &&
-                typeof promise.catch ===
-                    "function"
-            ) {
-
-                promise.catch(
-                    function () {
-
-                        /*
-                         * Browser autoplay
-                         * blocked.
-                         *
-                         * No error screen.
-                         */
-
-                        console.warn(
-                            "ℹ️ Music autoplay blocked. User can start it manually."
-                        );
-
-                    }
+            var original =
+                document.getElementById(
+                    "main"
                 );
 
+
+            if (original) {
+
+                original.style.visibility =
+                    "visible";
+
+                original.style.opacity =
+                    "1";
+
             }
 
+        } catch (e) {}
 
-            if (button) {
 
-                button.textContent =
-                    "🎵";
+        /*
+         * Fade cinematic layer.
+         */
 
-            }
+        if (root) {
 
-        } catch (error) {
+            root.style.transition =
+                "opacity 1600ms ease";
 
-            console.warn(
-                "Music play failed:",
-                error
+
+            root.style.opacity =
+                "0";
+
+
+            setTimeout(
+                function () {
+
+                    if (root) {
+
+                        root.style.display =
+                            "none";
+
+                    }
+
+                },
+                1700
             );
 
         }
+
+
+        /*
+         * Trigger original animation
+         * if available.
+         */
+
+        setTimeout(
+            function () {
+
+                try {
+
+                    if (
+                        typeof startHeartAnimation ===
+                        "function"
+                    ) {
+
+                        startHeartAnimation();
+
+                    }
+
+                } catch (e) {
+
+                    console.log(
+                        "Garden animation unavailable."
+                    );
+
+                }
+
+
+                try {
+
+                    if (
+                        typeof startFireworks ===
+                        "function"
+                    ) {
+
+                        startFireworks();
+
+                    }
+
+                } catch (e) {
+
+                    console.log(
+                        "Fireworks unavailable."
+                    );
+
+                }
+
+            },
+            500
+        );
+
+
+        /*
+         * Fireworks fallbacks.
+         */
+
+        try {
+
+            var canvas =
+                document.getElementById(
+                    "canvas"
+                );
+
+
+            if (canvas) {
+
+                canvas.style.visibility =
+                    "visible";
+
+                canvas.style.opacity =
+                    "1";
+
+            }
+
+        } catch (e) {}
+
+    }
+
+
+    /* =====================================================
+       SKIP GENERIC SCENE
+    ===================================================== */
+
+    function skipScene(id) {
+
+        var sceneEl =
+            document.getElementById(
+                id
+            );
+
+
+        if (!sceneEl) {
+            return;
+        }
+
+
+        sceneEl.dataset.skip =
+            "true";
+
+
+        sceneEl.style.display =
+            "none";
 
     }
 
@@ -1723,86 +2458,24 @@
        START BUTTON
     ===================================================== */
 
-    function setupStartButton() {
+    function setupStart() {
 
-        const button =
+        var button =
             document.getElementById(
-                "bxStart"
+                "bxStartButton"
             );
 
 
-        if (!button) return;
+        if (!button) {
+            return;
+        }
 
 
         button.addEventListener(
             "click",
             function () {
 
-                playMusic();
-
-
-                const firstSection =
-                    experience.querySelector(
-                        '[data-section="hero"]'
-                    );
-
-
-                if (firstSection) {
-
-                    firstSection.scrollIntoView({
-                        behavior:
-                            "smooth",
-                        block:
-                            "start"
-                    });
-
-                }
-
-            }
-        );
-
-    }
-
-
-    /* =====================================================
-       PROGRESS BAR
-    ===================================================== */
-
-    function setupProgress() {
-
-        if (!experience) return;
-
-
-        experience.addEventListener(
-            "scroll",
-            function () {
-
-                const max =
-                    experience.scrollHeight -
-                    experience.clientHeight;
-
-
-                const percent =
-                    max > 0
-                        ? (
-                            experience.scrollTop /
-                            max
-                        ) * 100
-                        : 0;
-
-
-                const bar =
-                    document.getElementById(
-                        "bxProgress"
-                    );
-
-
-                if (bar) {
-
-                    bar.style.width =
-                        percent + "%";
-
-                }
+                startExperience();
 
             }
         );
@@ -1816,9 +2489,9 @@
 
     function setupLightbox() {
 
-        const close =
+        var close =
             document.getElementById(
-                "bxClose"
+                "bxLightboxClose"
             );
 
 
@@ -1832,21 +2505,21 @@
         }
 
 
-        const lightbox =
+        var box =
             document.getElementById(
                 "bxLightbox"
             );
 
 
-        if (lightbox) {
+        if (box) {
 
-            lightbox.addEventListener(
+            box.addEventListener(
                 "click",
                 function (event) {
 
                     if (
                         event.target ===
-                        lightbox
+                        box
                     ) {
 
                         closeLightbox();
@@ -1879,351 +2552,197 @@
 
 
     /* =====================================================
-       FINAL CELEBRATION
+       PREVENT PAGE SCROLL
+       
+       Cinematic scenes handle their own scrolling.
     ===================================================== */
 
-    function launchFinalCelebration() {
+    function lockBody() {
 
-        if (
-            finalCelebrationStarted
-        ) {
+        document.documentElement.style
+            .overflow =
+            "hidden";
 
-            return;
-
-        }
-
-
-        finalCelebrationStarted =
-            true;
-
-
-        console.log(
-            "🎆 Final birthday celebration!"
-        );
-
-
-        /*
-         * Create hearts
-         */
-
-        for (
-            let i = 0;
-            i < 90;
-            i++
-        ) {
-
-            const heart =
-                document.createElement(
-                    "div"
-                );
-
-
-            const symbols = [
-                "♥",
-                "❤",
-                "💗",
-                "✨",
-                "💖"
-            ];
-
-
-            heart.textContent =
-                symbols[
-                    Math.floor(
-                        Math.random() *
-                        symbols.length
-                    )
-                ];
-
-
-            heart.style.position =
-                "fixed";
-
-
-            heart.style.left =
-                Math.random() *
-                100 +
-                "vw";
-
-
-            heart.style.top =
-                "-40px";
-
-
-            heart.style.zIndex =
-                "100000";
-
-
-            heart.style.fontSize =
-                (
-                    15 +
-                    Math.random() *
-                    25
-                ) +
-                "px";
-
-
-            heart.style.color =
-                "#ff65b9";
-
-
-            heart.style.pointerEvents =
-                "none";
-
-
-            const duration =
-                3000 +
-                Math.random() *
-                3500;
-
-
-            heart.animate(
-                [
-                    {
-                        transform:
-                            "translateY(0) rotate(0deg)",
-                        opacity:
-                            1
-                    },
-                    {
-                        transform:
-                            "translateY(115vh) rotate(600deg)",
-                        opacity:
-                            0
-                    }
-                ],
-                {
-                    duration:
-                        duration,
-                    easing:
-                        "ease-out"
-                }
-            );
-
-
-            document.body.appendChild(
-                heart
-            );
-
-
-            setTimeout(
-                function () {
-
-                    if (
-                        heart &&
-                        heart.parentNode
-                    ) {
-
-                        heart.remove();
-
-                    }
-
-                },
-                duration + 500
-            );
-
-        }
-
-
-        /*
-         * Try to activate existing
-         * fireworks if available.
-         *
-         * We DO NOT depend on it.
-         */
-
-        try {
-
-            if (
-                typeof fireworks ===
-                "function"
-            ) {
-
-                fireworks();
-
-            }
-
-        } catch (e) {
-
-            console.log(
-                "Existing fireworks unavailable:",
-                e
-            );
-
-        }
-
-
-        /*
-         * Scroll to final section
-         */
-
-        const finalSection =
-            experience.querySelector(
-                '[data-section="final"]'
-            );
-
-
-        if (finalSection) {
-
-            setTimeout(
-                function () {
-
-                    finalSection.scrollIntoView({
-                        behavior:
-                            "smooth",
-                        block:
-                            "start"
-                    });
-
-                },
-                700
-            );
-
-        }
+        document.body.style
+            .overflow =
+            "hidden";
 
     }
 
 
     /* =====================================================
-       GLOBAL FALLBACK
-       If ANY non-critical part fails,
-       website still stays usable.
+       UNLOCK BODY
     ===================================================== */
 
-    function safeRun(
-        functionName,
-        callback
-    ) {
+    function unlockBody() {
+
+        document.documentElement.style
+            .overflow =
+            "";
+
+        document.body.style
+            .overflow =
+            "";
+
+    }
+
+
+    /* =====================================================
+       BUILD ALL
+    ===================================================== */
+
+    function build() {
+
+        injectSafetyCSS();
+
+        lockBody();
+
+        createRoot();
+
+
+        /*
+         * Build in exact order.
+         */
+
+        buildIntro();
+
+        buildHero();
+
+        buildStory();
+
+        buildPhotos();
+
+
+        buildVideo(
+            "bxSceneVideo1",
+            "03 — PRESS PLAY",
+            "Some moments deserve motion.",
+            CONFIG.memoryVideo,
+            false
+        );
+
+
+        buildLetter();
+
+
+        buildVideo(
+            "bxSceneVideo2",
+            "05 — ONE MORE THING",
+            "Okay... one more.",
+            CONFIG.secondVideo,
+            false
+        );
+
+
+        buildVideo(
+            "bxSceneFinalVideo",
+            "06 — THE LAST SURPRISE",
+            "This one's just for you.",
+            CONFIG.finalVideo,
+            true
+        );
+
+
+        buildFinal();
+
+
+        buildLightbox();
+
+        buildMusic();
+
+
+        /*
+         * Intro active.
+         */
+
+        var intro =
+            document.getElementById(
+                "bxSceneIntro"
+            );
+
+
+        if (intro) {
+
+            intro.classList.add(
+                "active"
+            );
+
+
+            state.currentScene =
+                intro;
+
+        }
+
+
+        /*
+         * Setup interactions.
+         */
+
+        setupStart();
+
+        setupPhotos();
+
+        setupVideos();
+
+        setupLightbox();
+
+
+        /*
+         * Ensure no video can autoplay
+         * before Start.
+         */
+
+        var videos =
+            root.querySelectorAll(
+                "video"
+            );
+
+
+        Array.prototype.forEach.call(
+            videos,
+            function (video) {
+
+                video.autoplay =
+                    false;
+
+                video.removeAttribute(
+                    "autoplay"
+                );
+
+            }
+        );
+
+
+        console.log(
+            "🎬 Cinematic Birthday Experience ready."
+        );
+
+
+        console.log(
+            "👆 Waiting for START button."
+        );
+
+    }
+
+
+    /* =====================================================
+       SAFETY
+    ===================================================== */
+
+    function boot() {
 
         try {
 
-            callback();
+            build();
 
         } catch (error) {
 
             console.error(
-                "Birthday module error [" +
-                functionName +
-                "]:",
+                "Birthday cinematic boot error:",
                 error
             );
 
         }
-
-    }
-
-
-    /* =====================================================
-       INITIALIZATION
-    ===================================================== */
-
-    function initialize() {
-
-        safeRun(
-            "createExperience",
-            createExperience
-        );
-
-
-        if (!experience) {
-
-            return;
-
-        }
-
-
-        safeRun(
-            "buildStory",
-            buildStory
-        );
-
-
-        safeRun(
-            "buildLetter",
-            buildLetter
-        );
-
-
-        safeRun(
-            "buildGallery",
-            buildGallery
-        );
-
-
-        safeRun(
-            "setupMusic",
-            setupMusic
-        );
-
-
-        safeRun(
-            "setupStartButton",
-            setupStartButton
-        );
-
-
-        safeRun(
-            "setupProgress",
-            setupProgress
-        );
-
-
-        safeRun(
-            "setupLightbox",
-            setupLightbox
-        );
-
-
-        /*
-         * Setup videos separately
-         */
-
-        safeRun(
-            "video1",
-            function () {
-
-                setupVideo(
-                    "bxVideo1",
-                    C.memoryVideo,
-                    false
-                );
-
-            }
-        );
-
-
-        safeRun(
-            "video2",
-            function () {
-
-                setupVideo(
-                    "bxVideo2",
-                    C.secondVideo,
-                    false
-                );
-
-            }
-        );
-
-
-        safeRun(
-            "finalVideo",
-            function () {
-
-                setupVideo(
-                    "bxFinalVideo",
-                    C.finalVideo,
-                    true
-                );
-
-            }
-        );
-
-
-        console.log(
-            "❤️ Cinematic Birthday Experience loaded for:",
-            C.name
-        );
 
     }
 
@@ -2239,12 +2758,12 @@
 
         document.addEventListener(
             "DOMContentLoaded",
-            initialize
+            boot
         );
 
     } else {
 
-        initialize();
+        boot();
 
     }
 
