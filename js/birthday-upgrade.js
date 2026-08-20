@@ -1,121 +1,75 @@
 /* =========================================================
    ❤️ CINEMATIC BIRTHDAY EXPERIENCE
-   AUTO SCENE ENGINE
-
-   Existing files preserved:
-   jquery.js
-   garden.js
-   functions.js
-   fireworks.js
-   config.js
-
-========================================================= */
+   COMPLETE + FAIL-SAFE VERSION
+   ========================================================= */
 
 (function () {
 
     "use strict";
 
-
     /* =====================================================
        CONFIG
+       Supports both:
+       const BIRTHDAY_CONFIG = {...}
+       and
+       window.BIRTHDAY_CONFIG
     ===================================================== */
 
-    let C = null;
-
-    try {
-
-        if (typeof BIRTHDAY_CONFIG !== "undefined") {
-
-            C = BIRTHDAY_CONFIG;
-
-        }
-
-    } catch (e) {
-
-        console.error(
-            "Birthday config error:",
-            e
-        );
-
-    }
+    const C =
+        (typeof BIRTHDAY_CONFIG !== "undefined")
+            ? BIRTHDAY_CONFIG
+            : window.BIRTHDAY_CONFIG;
 
 
     if (!C) {
 
         console.error(
-            "BIRTHDAY_CONFIG not found."
+            "❌ BIRTHDAY_CONFIG not found."
         );
 
         return;
-
     }
 
 
     /* =====================================================
-       DEFAULTS
+       GLOBAL STATE
     ===================================================== */
 
-    C.name =
-        C.name || "Someone Special";
+    let music = null;
 
-    C.photos =
-        Array.isArray(C.photos)
-            ? C.photos
-            : [];
+    let experience = null;
 
-    C.music =
-        C.music || "";
+    let finalCelebrationStarted = false;
 
-    C.memoryVideo =
-        C.memoryVideo || "";
-
-    C.secondVideo =
-        C.secondVideo || "";
-
-    C.finalVideo =
-        C.finalVideo || "";
+    let currentVideo = null;
 
 
     /* =====================================================
-       PAGE TITLE
+       UTILITY
     ===================================================== */
 
-    document.title =
-        C.pageTitle ||
-        "Happy Birthday ❤️";
+    function hasPath(value) {
 
+        return (
+            typeof value === "string" &&
+            value.trim().length > 0
+        );
 
-    /* =====================================================
-       HELPERS
-    ===================================================== */
+    }
+
 
     function escapeHTML(value) {
 
-        const div =
-            document.createElement("div");
+        if (value === undefined || value === null) {
+            return "";
+        }
 
-        div.textContent =
-            value == null
-                ? ""
-                : value;
-
-        return div.innerHTML;
-
-    }
-
-
-    function wait(ms) {
-
-        return new Promise(
-            function (resolve) {
-
-                setTimeout(
-                    resolve,
-                    ms
-                );
-
-            }
-        );
+        return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
 
     }
 
@@ -124,60 +78,61 @@
        CREATE MAIN EXPERIENCE
     ===================================================== */
 
-    const app =
-        document.createElement("div");
+    function createExperience() {
 
-    app.id =
-        "birthdayExperience";
+        /*
+         * Prevent duplicate creation
+         */
 
+        if (
+            document.getElementById(
+                "birthdayExperience"
+            )
+        ) {
 
-    app.innerHTML = `
+            return;
 
-        <div class="bx-background">
-
-            <div class="bx-orb one"></div>
-            <div class="bx-orb two"></div>
-
-        </div>
-
-
-        <div class="bx-noise"></div>
+        }
 
 
-        <div
-            class="bx-progress"
-            id="bxProgress">
-        </div>
+        experience =
+            document.createElement("div");
+
+        experience.id =
+            "birthdayExperience";
 
 
-        <div
-            class="bx-flash"
-            id="bxFlash">
-        </div>
+        experience.innerHTML = `
 
+            <div class="bx-noise"></div>
 
-        <button
-            class="bx-music"
-            id="bxMusic"
-            aria-label="Music">
-
-            🔇
-
-        </button>
-
-
-        <div
-            class="bx-scenes"
-            id="bxScenes">
+            <div
+                class="bx-progress"
+                id="bxProgress">
+            </div>
 
 
             <!-- =========================================
-                 SCENE 0 — INTRO
+                 MUSIC BUTTON
+            ========================================== -->
+
+            <button
+                class="bx-music"
+                id="bxMusic"
+                aria-label="Music">
+
+                🔇
+
+            </button>
+
+
+            <!-- =========================================
+                 INTRO
             ========================================== -->
 
             <section
-                class="bx-scene active"
-                data-scene="0">
+                class="bx-screen"
+                data-section="intro">
 
                 <div class="bx-center">
 
@@ -190,14 +145,14 @@
 
                         Hey,
 
-                        <span>
+                        <span id="bxIntroName">
                             ${escapeHTML(C.name)}
                         </span>
 
                     </h1>
 
 
-                    <p class="bx-intro-subtitle">
+                    <p class="bx-subtitle">
 
                         ${escapeHTML(
                             C.introSmallText ||
@@ -206,12 +161,14 @@
 
                         <br><br>
 
-                        <strong>
+                        <span>
+
                             ${escapeHTML(
                                 C.introText ||
                                 "But you're not exactly a normal person to me."
                             )}
-                        </strong>
+
+                        </span>
 
                     </p>
 
@@ -225,11 +182,17 @@
                     </button>
 
 
-                    <div class="bx-auto-hint">
+                    <p
+                        style="
+                        color:#665b68;
+                        font-size:10px;
+                        letter-spacing:2px;
+                        margin-top:25px;
+                        ">
 
-                        TAP TO BEGIN
+                        🔊 Turn your volume up
 
-                    </div>
+                    </p>
 
                 </div>
 
@@ -237,16 +200,16 @@
 
 
             <!-- =========================================
-                 SCENE 1 — BIRTHDAY
+                 HERO
             ========================================== -->
 
             <section
-                class="bx-scene"
-                data-scene="1">
+                class="bx-section"
+                data-section="hero">
 
                 <div class="bx-center">
 
-                    <div class="bx-label">
+                    <div class="bx-section-label">
                         TODAY IS DIFFERENT
                     </div>
 
@@ -254,26 +217,30 @@
                     <h1 class="bx-heading">
 
                         Happy
-
-                        <span>
-                            Birthday.
-                        </span>
+                        <i>Birthday</i>
 
                     </h1>
 
 
-                    <div class="bx-name">
+                    <div
+                        class="bx-hero-name"
+                        style="
+                        font-size:clamp(30px,5vw,60px);
+                        color:#ffe1f1;
+                        margin-top:35px;
+                        ">
 
-                        ${escapeHTML(C.name)} ❤️
+                        ${escapeHTML(C.name)}
+                        ❤️
 
                     </div>
 
 
-                    <p class="bx-small">
+                    <p class="bx-subtitle">
 
                         Some people enter your life normally...
 
-                        <br>
+                        <br><br>
 
                         and somehow become
                         a little more special
@@ -287,31 +254,34 @@
 
 
             <!-- =========================================
-                 SCENE 2 — STORY
+                 STORY
             ========================================== -->
 
             <section
-                class="bx-scene"
-                data-scene="2">
+                class="bx-section"
+                data-section="story">
 
-                <div class="bx-center">
+                <div class="bx-container">
 
-                    <div class="bx-label">
+                    <div class="bx-section-label">
                         01 — A LITTLE STORY
                     </div>
 
 
                     <h2 class="bx-heading">
 
-                        This wasn't
-                        <i>planned.</i>
+                        ${escapeHTML(
+                            C.storyTitle ||
+                            "This wasn't supposed to become this."
+                        )}
 
                     </h2>
 
 
                     <div
-                        class="bx-story"
+                        class="bx-text"
                         id="bxStory">
+
                     </div>
 
                 </div>
@@ -320,55 +290,44 @@
 
 
             <!-- =========================================
-                 SCENE 3 — MOMENTS
+                 PHOTO GALLERY
             ========================================== -->
 
             <section
-                class="bx-scene"
-                data-scene="3">
+                class="bx-section"
+                data-section="photos">
 
-                <div class="bx-center">
+                <div class="bx-container">
 
-                    <div class="bx-label">
+                    <div class="bx-section-label">
                         02 — LITTLE MOMENTS
                     </div>
 
 
                     <h2 class="bx-heading">
 
-                        Worth
-
+                        Things worth
                         <i>remembering.</i>
 
                     </h2>
 
 
-                    <div class="bx-memory">
+                    <p class="bx-text">
 
-                        <img
-                            id="bxMemory1"
-                            alt="Memory">
+                        Because some pictures
+                        are not just pictures.
 
+                        <br><br>
 
-                        <img
-                            id="bxMemory2"
-                            alt="Memory">
+                        They're tiny pieces
+                        of memories.
 
-
-                        <div
-                            class="bx-memory-caption"
-                            id="bxMemoryCaption">
-
-                            Little moments.
-
-                        </div>
-
-                    </div>
+                    </p>
 
 
                     <div
-                        class="bx-counter"
-                        id="bxCounter">
+                        class="bx-gallery"
+                        id="bxGallery">
 
                     </div>
 
@@ -378,50 +337,41 @@
 
 
             <!-- =========================================
-                 SCENE 4 — VIDEO 1
+                 VIDEO 1
             ========================================== -->
 
             <section
-                class="bx-scene"
-                data-scene="4">
+                class="bx-section bx-video-section"
+                data-section="video1">
 
-                <div class="bx-center">
+                <div class="bx-container">
 
-                    <div class="bx-label">
+                    <div class="bx-section-label">
                         03 — PRESS PLAY
                     </div>
 
 
                     <h2 class="bx-heading">
 
-                        Some memories
+                        Some moments
                         deserve <i>motion.</i>
 
                     </h2>
 
 
-                    <div class="bx-video-wrap">
+                    <div class="bx-video">
 
                         <video
-                            class="bx-video"
                             id="bxVideo1"
                             controls
                             playsinline
                             preload="metadata">
 
                             <source
-                                src="${escapeHTML(C.memoryVideo)}"
+                                src=""
                                 type="video/mp4">
 
                         </video>
-
-
-                        <div class="bx-video-note">
-
-                            VIDEO WILL CONTINUE
-                            AFTER IT ENDS
-
-                        </div>
 
                     </div>
 
@@ -431,14 +381,14 @@
 
 
             <!-- =========================================
-                 SCENE 5 — INTERLUDE
+                 INTERLUDE
             ========================================== -->
 
             <section
-                class="bx-scene"
-                data-scene="5">
+                class="bx-section bx-interlude"
+                data-section="interlude">
 
-                <div class="bx-center bx-interlude">
+                <div class="bx-center">
 
                     <div class="bx-label">
                         WAIT...
@@ -448,7 +398,6 @@
                     <h2>
 
                         You thought
-
                         <br>
 
                         <span>
@@ -458,7 +407,12 @@
                     </h2>
 
 
-                    <p class="bx-small">
+                    <p
+                        style="
+                        color:#766a77;
+                        margin-top:35px;
+                        letter-spacing:4px;
+                        ">
 
                         Not quite.
 
@@ -470,16 +424,16 @@
 
 
             <!-- =========================================
-                 SCENE 6 — LETTER
+                 LETTER
             ========================================== -->
 
             <section
-                class="bx-scene"
-                data-scene="6">
+                class="bx-section"
+                data-section="letter">
 
-                <div class="bx-center">
+                <div class="bx-container">
 
-                    <div class="bx-label">
+                    <div class="bx-section-label">
                         04 — SOMETHING I WANTED TO SAY
                     </div>
 
@@ -498,12 +452,13 @@
 
                         <div
                             id="bxLetter">
+
                         </div>
 
 
                         <div
                             style="
-                            margin-top:30px;
+                            margin-top:60px;
                             color:#7d717d;
                             line-height:1.8;
                             ">
@@ -531,16 +486,16 @@
 
 
             <!-- =========================================
-                 SCENE 7 — VIDEO 2
+                 VIDEO 2
             ========================================== -->
 
             <section
-                class="bx-scene"
-                data-scene="7">
+                class="bx-section bx-video-section"
+                data-section="video2">
 
-                <div class="bx-center">
+                <div class="bx-container">
 
-                    <div class="bx-label">
+                    <div class="bx-section-label">
                         05 — ONE MORE THING
                     </div>
 
@@ -548,23 +503,21 @@
                     <h2 class="bx-heading">
 
                         Okay...
-
                         <i>one more.</i>
 
                     </h2>
 
 
-                    <div class="bx-video-wrap">
+                    <div class="bx-video">
 
                         <video
-                            class="bx-video"
                             id="bxVideo2"
                             controls
                             playsinline
                             preload="metadata">
 
                             <source
-                                src="${escapeHTML(C.secondVideo)}"
+                                src=""
                                 type="video/mp4">
 
                         </video>
@@ -577,16 +530,16 @@
 
 
             <!-- =========================================
-                 SCENE 8 — FINAL VIDEO
+                 FINAL VIDEO
             ========================================== -->
 
             <section
-                class="bx-scene"
-                data-scene="8">
+                class="bx-section bx-video-section"
+                data-section="finalVideo">
 
-                <div class="bx-center">
+                <div class="bx-container">
 
-                    <div class="bx-label">
+                    <div class="bx-section-label">
                         06 — THE LAST SURPRISE
                     </div>
 
@@ -599,17 +552,16 @@
                     </h2>
 
 
-                    <div class="bx-video-wrap">
+                    <div class="bx-video">
 
                         <video
-                            class="bx-video"
                             id="bxFinalVideo"
                             controls
                             playsinline
                             preload="metadata">
 
                             <source
-                                src="${escapeHTML(C.finalVideo)}"
+                                src=""
                                 type="video/mp4">
 
                         </video>
@@ -622,12 +574,12 @@
 
 
             <!-- =========================================
-                 SCENE 9 — FINAL MESSAGE
+                 FINAL
             ========================================== -->
 
             <section
-                class="bx-scene bx-final"
-                data-scene="9">
+                class="bx-section bx-final"
+                data-section="final">
 
                 <div class="bx-center">
 
@@ -651,7 +603,8 @@
 
                     <div class="bx-final-name">
 
-                        ${escapeHTML(C.name)} ❤️
+                        ${escapeHTML(C.name)}
+                        ❤️
 
                     </div>
 
@@ -660,19 +613,10 @@
 
                         ${escapeHTML(
                             C.finalMessage ||
-                            "Stay exactly the way you are."
+                            ""
                         )}
 
                     </p>
-
-
-                    <button
-                        class="bx-button"
-                        id="bxReveal">
-
-                        One Last Surprise ❤️
-
-                    </button>
 
 
                     <div class="bx-secret">
@@ -682,14 +626,12 @@
                         </strong>
 
 
-                        <div>
-
+                        <p>
                             ${escapeHTML(
                                 C.finalSecret ||
-                                "Maybe someday..."
+                                ""
                             )}
-
-                        </div>
+                        </p>
 
 
                         <div class="bx-heart">
@@ -698,721 +640,189 @@
 
 
                         <small>
-
                             ${escapeHTML(
                                 C.finalFooter ||
-                                "Made with a little too much affection."
+                                ""
                             )}
-
                         </small>
 
                     </div>
+
+
+                    <p
+                        style="
+                        margin-top:60px;
+                        color:#514852;
+                        font-size:9px;
+                        letter-spacing:2px;
+                        line-height:2;
+                        ">
+
+                        Made with a little too much effort
+
+                        <br>
+
+                        and probably a little too much affection.
+
+                    </p>
 
                 </div>
 
             </section>
 
 
-        </div>
+            <!-- =========================================
+                 LIGHTBOX
+            ========================================== -->
+
+            <div
+                class="bx-lightbox"
+                id="bxLightbox">
+
+                <button
+                    class="bx-close"
+                    id="bxClose">
+
+                    ×
+
+                </button>
 
 
-        <!-- =============================================
-             LIGHTBOX
-        ============================================== -->
+                <img
+                    id="bxLightboxImage"
+                    src=""
+                    alt="Memory">
 
-        <div
-            class="bx-lightbox"
-            id="bxLightbox">
+            </div>
 
-            <button
-                class="bx-close"
-                id="bxClose">
-
-                ×
-
-            </button>
+        `;
 
 
-            <img
-                id="bxLightboxImage"
-                alt="Memory">
-
-        </div>
-
-    `;
-
-
-    document.body.appendChild(app);
-
-
-    /* =====================================================
-       ELEMENTS
-    ===================================================== */
-
-    const scenes =
-        Array.from(
-            app.querySelectorAll(".bx-scene")
+        document.body.appendChild(
+            experience
         );
 
-
-    const progress =
-        document.getElementById(
-            "bxProgress"
-        );
-
-
-    const startButton =
-        document.getElementById(
-            "bxStart"
-        );
-
-
-    const revealButton =
-        document.getElementById(
-            "bxReveal"
-        );
-
-
-    const musicButton =
-        document.getElementById(
-            "bxMusic"
-        );
-
-
-    let currentScene =
-        0;
-
-
-    let timer =
-        null;
-
-
-    let experienceStarted =
-        false;
-
-
-    let revealDone =
-        false;
+    }
 
 
     /* =====================================================
        STORY
     ===================================================== */
 
-    const storyElement =
-        document.getElementById(
-            "bxStory"
-        );
+    function buildStory() {
 
-
-    const storyLines =
-        Array.isArray(C.storyLines)
-            ? C.storyLines
-            : [];
-
-
-    storyLines.forEach(
-        function (text, index) {
-
-            const p =
-                document.createElement("p");
-
-            p.className =
-                "bx-story-line";
-
-
-            if (
-                index ===
-                storyLines.length - 1
-            ) {
-
-                p.classList.add(
-                    "final"
-                );
-
-            }
-
-
-            p.textContent =
-                text;
-
-
-            storyElement.appendChild(
-                p
+        const box =
+            document.getElementById(
+                "bxStory"
             );
 
+
+        if (!box) return;
+
+
+        const lines =
+            Array.isArray(C.storyLines)
+                ? C.storyLines
+                : [];
+
+
+        if (!lines.length) {
+
+            box.innerHTML = "";
+
+            return;
         }
-    );
+
+
+        lines.forEach(
+            function (text, index) {
+
+                const p =
+                    document.createElement(
+                        "p"
+                    );
+
+
+                p.textContent =
+                    text;
+
+
+                if (
+                    index ===
+                    lines.length - 1
+                ) {
+
+                    p.className =
+                        "bx-highlight";
+
+                }
+
+
+                box.appendChild(p);
+
+            }
+        );
+
+    }
 
 
     /* =====================================================
        LETTER
     ===================================================== */
 
-    const letterElement =
-        document.getElementById(
-            "bxLetter"
-        );
+    function buildLetter() {
 
-
-    const letterLines =
-        Array.isArray(C.letter)
-            ? C.letter
-            : [];
-
-
-    letterLines.forEach(
-        function (text, index) {
-
-            const p =
-                document.createElement("p");
-
-
-            p.textContent =
-                text;
-
-
-            if (
-                index ===
-                letterLines.length - 1
-            ) {
-
-                p.className =
-                    "special";
-
-            }
-
-
-            letterElement.appendChild(
-                p
-            );
-
-        }
-    );
-
-
-    /* =====================================================
-       MUSIC
-    ===================================================== */
-
-    let audio =
-        null;
-
-
-    if (C.music) {
-
-        audio =
-            document.createElement(
-                "audio"
+        const box =
+            document.getElementById(
+                "bxLetter"
             );
 
 
-        audio.src =
-            C.music;
-
-
-        audio.loop =
-            true;
-
-
-        audio.preload =
-            "auto";
-
-
-        audio.volume =
-            typeof C.musicVolume === "number"
-                ? C.musicVolume
-                : .45;
-
-
-        document.body.appendChild(
-            audio
-        );
-
-    }
-
-
-    function startMusic() {
-
-        if (!audio) {
-
-            musicButton.textContent =
-                "🎵";
-
-            return;
-
-        }
-
-
-        const play =
-            audio.play();
-
-
-        if (
-            play &&
-            typeof play.catch === "function"
-        ) {
-
-            play.catch(
-                function () {
-
-                    musicButton.textContent =
-                        "🔇";
-
-                }
-            );
-
-        } else {
-
-            musicButton.textContent =
-                "🎵";
-
-        }
-
-    }
-
-
-    function stopMusic() {
-
-        if (audio) {
-
-            audio.pause();
-
-        }
-
-        musicButton.textContent =
-            "🔇";
-
-    }
-
-
-    musicButton.addEventListener(
-        "click",
-        function () {
-
-            if (!audio) {
-                return;
-            }
-
-
-            if (audio.paused) {
-
-                startMusic();
-
-            } else {
-
-                stopMusic();
-
-            }
-
-        }
-    );
-
-
-    /* =====================================================
-       FLOATING HEARTS
-    ===================================================== */
-
-    function createFloatingHearts() {
-
-        const total =
-            18;
-
-
-        for (
-            let i = 0;
-            i < total;
-            i++
-        ) {
-
-            setTimeout(
-                function () {
-
-                    const heart =
-                        document.createElement(
-                            "div"
-                        );
-
-
-                    heart.className =
-                        "bx-floating-heart";
-
-
-                    heart.textContent =
-                        Math.random() > .5
-                            ? "♥"
-                            : "❤";
-
-
-                    heart.style.left =
-                        (
-                            5 +
-                            Math.random() * 90
-                        ) + "%";
-
-
-                    heart.style.fontSize =
-                        (
-                            12 +
-                            Math.random() * 20
-                        ) + "px";
-
-
-                    heart.style.animationDuration =
-                        (
-                            5 +
-                            Math.random() * 5
-                        ) + "s";
-
-
-                    app.appendChild(
-                        heart
-                    );
-
-
-                    setTimeout(
-                        function () {
-
-                            heart.remove();
-
-                        },
-                        11000
-                    );
-
-                },
-                i * 250
-            );
-
-        }
-
-    }
-
-
-    /* =====================================================
-       PHOTO MEMORY ENGINE
-    ===================================================== */
-
-    const memoryImages = [
-
-        document.getElementById(
-            "bxMemory1"
-        ),
-
-        document.getElementById(
-            "bxMemory2"
-        )
-
-    ];
-
-
-    const memoryCaption =
-        document.getElementById(
-            "bxMemoryCaption"
-        );
-
-
-    const memoryCounter =
-        document.getElementById(
-            "bxCounter"
-        );
-
-
-    let photoIndex =
-        0;
-
-
-    let photoTimer =
-        null;
-
-
-    let visiblePhoto =
-        0;
-
-
-    const photoDuration =
-        3200;
-
-
-    function preparePhotos() {
-
-        if (
-            !C.photos ||
-            !C.photos.length
-        ) {
-
-            memoryImages.forEach(
-                function (img) {
-
-                    img.style.display =
-                        "none";
-
-                }
-            );
-
-
-            memoryCaption.textContent =
-                "Some memories are better kept in the heart. ❤️";
-
-
-            memoryCounter.textContent =
-                "";
-
-
-            return;
-
-        }
-
-
-        photoIndex =
-            0;
-
-
-        visiblePhoto =
-            0;
-
-
-        memoryImages[0].src =
-            C.photos[0];
-
-
-        memoryImages[0].classList.add(
-            "active"
-        );
-
-
-        memoryImages[1].classList.remove(
-            "active"
-        );
-
-
-        memoryCounter.textContent =
-            "01 / " +
-            String(C.photos.length)
-                .padStart(2, "0");
-
-
-        memoryCaption.textContent =
-            "A little moment worth remembering. ❤️";
-
-    }
-
-
-    function showNextPhoto() {
-
-        if (
-            !C.photos ||
-            !C.photos.length
-        ) {
-
-            return;
-
-        }
-
-
-        if (
-            C.photos.length === 1
-        ) {
-
-            return;
-
-        }
-
-
-        const nextIndex =
-            (photoIndex + 1) %
-            C.photos.length;
-
-
-        const nextLayer =
-            visiblePhoto === 0
-                ? 1
-                : 0;
-
-
-        memoryImages[nextLayer].src =
-            C.photos[nextIndex];
-
-
-        memoryImages[nextLayer].classList.add(
-            "active"
-        );
-
-
-        memoryImages[visiblePhoto].classList.remove(
-            "active"
-        );
-
-
-        visiblePhoto =
-            nextLayer;
-
-
-        photoIndex =
-            nextIndex;
-
-
-        memoryCounter.textContent =
-            String(photoIndex + 1)
-                .padStart(2, "0") +
-            " / " +
-            String(C.photos.length)
-                .padStart(2, "0");
-
-
-        memoryCaption.textContent =
-            "Another little memory. ❤️";
-
-    }
-
-
-    function startPhotoShow() {
-
-        preparePhotos();
-
-
-        clearInterval(
-            photoTimer
-        );
-
-
-        if (
-            C.photos &&
-            C.photos.length > 1
-        ) {
-
-            photoTimer =
-                setInterval(
-                    showNextPhoto,
-                    photoDuration
-                );
-
-        }
-
-    }
-
-
-    function stopPhotoShow() {
-
-        clearInterval(
-            photoTimer
-        );
-
-        photoTimer =
-            null;
-
-    }
-
-
-    /* =====================================================
-       SCENE HELPERS
-    ===================================================== */
-
-    function scenePercent() {
-
-        if (
-            scenes.length <= 1
-        ) {
-
-            return 100;
-
-        }
-
-
-        return (
-            currentScene /
-            (scenes.length - 1)
-        ) * 100;
-
-    }
-
-
-    function updateProgress() {
-
-        progress.style.width =
-            scenePercent() + "%";
-
-    }
-
-
-    function clearSceneTimer() {
-
-        if (timer) {
-
-            clearTimeout(timer);
-
-            timer =
-                null;
-
-        }
-
-    }
-
-
-    function pauseAllVideos() {
-
-        app.querySelectorAll(
-            "video"
-        ).forEach(
-            function (video) {
-
-                video.pause();
-
-            }
-        );
-
-    }
-
-
-    function resetStoryAnimation() {
-
-        storyElement
-            .querySelectorAll(
-                ".bx-story-line"
-            )
-            .forEach(
-                function (line) {
-
-                    line.classList.remove(
-                        "show"
-                    );
-
-                }
-            );
-
-    }
-
-
-    /* =====================================================
-       STORY ANIMATION
-    ===================================================== */
-
-    function animateStory() {
-
-        resetStoryAnimation();
+        if (!box) return;
 
 
         const lines =
-            Array.from(
-                storyElement.querySelectorAll(
-                    ".bx-story-line"
-                )
-            );
+            Array.isArray(C.letter)
+                ? C.letter
+                : [];
 
 
         lines.forEach(
-            function (line, index) {
+            function (text, index) {
 
-                setTimeout(
-                    function () {
+                const p =
+                    document.createElement(
+                        "p"
+                    );
 
-                        line.classList.add(
-                            "show"
-                        );
 
-                    },
-                    500 +
-                    index * 1300
-                );
+                p.textContent =
+                    text;
+
+
+                if (
+                    text ===
+                    "You just became special."
+                ) {
+
+                    p.className =
+                        "special";
+
+                }
+
+
+                if (
+                    index ===
+                    lines.length - 1
+                ) {
+
+                    p.className =
+                        "special";
+
+                }
+
+
+                box.appendChild(p);
 
             }
         );
@@ -1421,685 +831,147 @@
 
 
     /* =====================================================
-       SCENE ACTIVATION
+       PHOTO GALLERY
+       MISSING PHOTO = SKIP
     ===================================================== */
 
-    function activateScene(
-        newScene,
-        automatic
-    ) {
-
-        clearSceneTimer();
-
-        stopPhotoShow();
-
-        pauseAllVideos();
-
-
-        if (
-            newScene < 0
-        ) {
-
-            newScene =
-                0;
-
-        }
-
-
-        if (
-            newScene >= scenes.length
-        ) {
-
-            newScene =
-                scenes.length - 1;
-
-        }
-
-
-        scenes.forEach(
-            function (scene, index) {
-
-                scene.classList.remove(
-                    "active"
-                );
-
-                scene.classList.remove(
-                    "exit"
-                );
-
-
-                if (
-                    index <
-                    newScene
-                ) {
-
-                    scene.classList.add(
-                        "exit"
-                    );
-
-                }
-
-            }
-        );
-
-
-        currentScene =
-            newScene;
-
-
-        const scene =
-            scenes[currentScene];
-
-
-        scene.classList.add(
-            "active"
-        );
-
-
-        updateProgress();
-
-
-        /* ==============================================
-           SCENE SPECIFIC ACTIONS
-        =============================================== */
-
-
-        /* STORY */
-
-        if (
-            currentScene === 2
-        ) {
-
-            animateStory();
-
-            timer =
-                setTimeout(
-                    function () {
-
-                        activateScene(
-                            3,
-                            true
-                        );
-
-                    },
-                    Math.max(
-                        6500,
-                        storyLines.length *
-                        1300 +
-                        1800
-                    )
-                );
-
-        }
-
-
-        /* PHOTOS */
-
-        else if (
-            currentScene === 3
-        ) {
-
-            startPhotoShow();
-
-
-            const duration =
-                Math.max(
-                    6500,
-                    (
-                        C.photos.length || 1
-                    ) * photoDuration
-                );
-
-
-            timer =
-                setTimeout(
-                    function () {
-
-                        activateScene(
-                            4,
-                            true
-                        );
-
-                    },
-                    duration
-                );
-
-        }
-
-
-        /* VIDEO 1 */
-
-        else if (
-            currentScene === 4
-        ) {
-
-            const video =
-                document.getElementById(
-                    "bxVideo1"
-                );
-
-
-            if (
-                video &&
-                C.memoryVideo
-            ) {
-
-                video.currentTime =
-                    0;
-
-
-                const promise =
-                    video.play();
-
-
-                if (
-                    promise &&
-                    promise.catch
-                ) {
-
-                    promise.catch(
-                        function () {
-
-                            /*
-                               If browser blocks
-                               autoplay, user can
-                               press play manually.
-                            */
-
-                        }
-                    );
-
-                }
-
-            } else {
-
-                timer =
-                    setTimeout(
-                        function () {
-
-                            activateScene(
-                                5,
-                                true
-                            );
-
-                        },
-                        3500
-                    );
-
-            }
-
-        }
-
-
-        /* INTERLUDE */
-
-        else if (
-            currentScene === 5
-        ) {
-
-            timer =
-                setTimeout(
-                    function () {
-
-                        activateScene(
-                            6,
-                            true
-                        );
-
-                    },
-                    4200
-                );
-
-        }
-
-
-        /* LETTER */
-
-        else if (
-            currentScene === 6
-        ) {
-
-            timer =
-                setTimeout(
-                    function () {
-
-                        activateScene(
-                            7,
-                            true
-                        );
-
-                    },
-                    Math.max(
-                        8000,
-                        letterLines.length *
-                        650
-                    )
-                );
-
-        }
-
-
-        /* VIDEO 2 */
-
-        else if (
-            currentScene === 7
-        ) {
-
-            const video =
-                document.getElementById(
-                    "bxVideo2"
-                );
-
-
-            if (
-                video &&
-                C.secondVideo
-            ) {
-
-                video.currentTime =
-                    0;
-
-
-                const promise =
-                    video.play();
-
-
-                if (
-                    promise &&
-                    promise.catch
-                ) {
-
-                    promise.catch(
-                        function () {}
-                    );
-
-                }
-
-            } else {
-
-                timer =
-                    setTimeout(
-                        function () {
-
-                            activateScene(
-                                8,
-                                true
-                            );
-
-                        },
-                        3500
-                    );
-
-            }
-
-        }
-
-
-        /* FINAL VIDEO */
-
-        else if (
-            currentScene === 8
-        ) {
-
-            const video =
-                document.getElementById(
-                    "bxFinalVideo"
-                );
-
-
-            if (
-                video &&
-                C.finalVideo
-            ) {
-
-                video.currentTime =
-                    0;
-
-
-                const promise =
-                    video.play();
-
-
-                if (
-                    promise &&
-                    promise.catch
-                ) {
-
-                    promise.catch(
-                        function () {}
-                    );
-
-                }
-
-            } else {
-
-                timer =
-                    setTimeout(
-                        function () {
-
-                            activateScene(
-                                9,
-                                true
-                            );
-
-                        },
-                        3500
-                    );
-
-            }
-
-        }
-
-
-        /* FINAL */
-
-        else if (
-            currentScene === 9
-        ) {
-
-            createFloatingHearts();
-
-        }
-
-    }
-
-
-    /* =====================================================
-       VIDEO END EVENTS
-    ===================================================== */
-
-    const video1 =
-        document.getElementById(
-            "bxVideo1"
-        );
-
-
-    const video2 =
-        document.getElementById(
-            "bxVideo2"
-        );
-
-
-    const finalVideo =
-        document.getElementById(
-            "bxFinalVideo"
-        );
-
-
-    if (video1) {
-
-        video1.addEventListener(
-            "ended",
-            function () {
-
-                activateScene(
-                    5,
-                    true
-                );
-
-            }
-        );
-
-    }
-
-
-    if (video2) {
-
-        video2.addEventListener(
-            "ended",
-            function () {
-
-                activateScene(
-                    8,
-                    true
-                );
-
-            }
-        );
-
-    }
-
-
-    if (finalVideo) {
-
-        finalVideo.addEventListener(
-            "ended",
-            function () {
-
-                activateScene(
-                    9,
-                    true
-                );
-
-            }
-        );
-
-    }
-
-
-    /* =====================================================
-       START EXPERIENCE
-    ===================================================== */
-
-    startButton.addEventListener(
-        "click",
-        function () {
-
-            if (
-                experienceStarted
-            ) {
-
-                return;
-
-            }
-
-
-            experienceStarted =
-                true;
-
-
-            startMusic();
-
-
-            startButton.disabled =
-                true;
-
-
-            activateScene(
-                1,
-                true
+    function buildGallery() {
+
+        const gallery =
+            document.getElementById(
+                "bxGallery"
             );
 
 
-            timer =
-                setTimeout(
-                    function () {
-
-                        activateScene(
-                            2,
-                            true
-                        );
-
-                    },
-                    5000
-                );
-
-        }
-    );
+        if (!gallery) return;
 
 
-    /* =====================================================
-       FINAL REVEAL
-    ===================================================== */
-
-    revealButton.addEventListener(
-        "click",
-        function () {
-
-            revealOriginalBirthday();
-
-        }
-    );
+        const photos =
+            Array.isArray(C.photos)
+                ? C.photos
+                : [];
 
 
-    /* =====================================================
-       REVEAL ORIGINAL GARDEN
-    ===================================================== */
+        if (!photos.length) {
 
-    function revealOriginalBirthday() {
-
-        if (revealDone) {
+            hideSection(
+                gallery.closest(
+                    ".bx-section"
+                )
+            );
 
             return;
 
         }
 
 
-        revealDone =
-            true;
+        photos.forEach(
+            function (photo, index) {
 
-
-        clearSceneTimer();
-
-        stopPhotoShow();
-
-        pauseAllVideos();
-
-
-        const flash =
-            document.getElementById(
-                "bxFlash"
-            );
-
-
-        flash.classList.add(
-            "play"
-        );
-
-
-        /*
-           Give Garden canvas a moment
-           to become visible.
-        */
-
-        setTimeout(
-            function () {
-
-                /*
-                   Existing Garden heart
-                */
-
-                try {
-
-                    if (
-                        typeof startHeartAnimation ===
-                        "function"
-                    ) {
-
-                        startHeartAnimation();
-
-                    }
-
-                } catch (error) {
-
-                    console.error(
-                        "Heart animation error:",
-                        error
-                    );
-
+                if (!hasPath(photo)) {
+                    return;
                 }
 
 
-                /*
-                   Existing fireworks
-                */
+                const wrapper =
+                    document.createElement(
+                        "div"
+                    );
 
-                setTimeout(
+
+                wrapper.className =
+                    "bx-photo";
+
+
+                const img =
+                    document.createElement(
+                        "img"
+                    );
+
+
+                img.src =
+                    photo;
+
+                img.alt =
+                    "Memory " +
+                    (index + 1);
+
+                img.loading =
+                    "lazy";
+
+
+                /*
+                 * IMAGE ERROR
+                 */
+
+                img.addEventListener(
+                    "error",
                     function () {
 
-                        try {
+                        console.warn(
+                            "⚠️ Photo skipped:",
+                            photo
+                        );
 
-                            if (
-                                typeof window.startFireworks ===
-                                "function"
-                            ) {
 
-                                window.startFireworks();
+                        wrapper.remove();
 
-                            }
-
-                        } catch (error) {
-
-                            console.error(
-                                "Fireworks error:",
-                                error
-                            );
-
-                        }
+                        checkGalleryEmpty();
 
                     },
-                    1800
+                    {
+                        once: true
+                    }
                 );
-
-
-            },
-            300
-        );
-
-
-        /*
-           Fade cinematic layer
-        */
-
-        setTimeout(
-            function () {
-
-                app.classList.add(
-                    "bx-hidden"
-                );
-
-
-            },
-            500
-        );
-
-
-        /*
-           Remove after fade
-        */
-
-        setTimeout(
-            function () {
-
-                app.remove();
-
-
-                document.body.style.overflow =
-                    "auto";
 
 
                 /*
-                   If old page uses
-                   loveHeart visibility,
-                   make sure it is visible.
-                */
+                 * IMAGE CLICK
+                 */
 
-                const loveHeart =
-                    document.getElementById(
-                        "loveHeart"
-                    );
+                wrapper.addEventListener(
+                    "click",
+                    function () {
+
+                        openLightbox(
+                            photo
+                        );
+
+                    }
+                );
 
 
-                if (loveHeart) {
+                wrapper.appendChild(
+                    img
+                );
 
-                    loveHeart.style.visibility =
-                        "visible";
 
-                }
+                gallery.appendChild(
+                    wrapper
+                );
 
-            },
-            2200
+            }
         );
+
+
+        checkGalleryEmpty();
+
+
+        function checkGalleryEmpty() {
+
+            if (
+                gallery.children.length === 0
+            ) {
+
+                hideSection(
+                    gallery.closest(
+                        ".bx-section"
+                    )
+                );
+
+            }
+
+        }
 
     }
 
@@ -2108,25 +980,45 @@
        LIGHTBOX
     ===================================================== */
 
-    const lightbox =
-        document.getElementById(
-            "bxLightbox"
+    function openLightbox(src) {
+
+        const lightbox =
+            document.getElementById(
+                "bxLightbox"
+            );
+
+        const image =
+            document.getElementById(
+                "bxLightboxImage"
+            );
+
+
+        if (!lightbox || !image) {
+            return;
+        }
+
+
+        image.src =
+            src;
+
+
+        lightbox.classList.add(
+            "show"
         );
 
-
-    const lightboxImage =
-        document.getElementById(
-            "bxLightboxImage"
-        );
-
-
-    const closeButton =
-        document.getElementById(
-            "bxClose"
-        );
+    }
 
 
     function closeLightbox() {
+
+        const lightbox =
+            document.getElementById(
+                "bxLightbox"
+            );
+
+
+        if (!lightbox) return;
+
 
         lightbox.classList.remove(
             "show"
@@ -2135,160 +1027,1226 @@
     }
 
 
-    closeButton.addEventListener(
-        "click",
-        closeLightbox
-    );
+    /* =====================================================
+       HIDE SECTION
+    ===================================================== */
+
+    function hideSection(section) {
+
+        if (!section) return;
 
 
-    lightbox.addEventListener(
-        "click",
-        function (event) {
+        section.dataset.skipped =
+            "true";
+
+
+        section.style.display =
+            "none";
+
+    }
+
+
+    /* =====================================================
+       FIND NEXT VISIBLE SECTION
+    ===================================================== */
+
+    function getNextSection(section) {
+
+        if (!section) return null;
+
+
+        let next =
+            section.nextElementSibling;
+
+
+        while (next) {
 
             if (
-                event.target ===
-                lightbox
+                next.classList &&
+                next.classList.contains(
+                    "bx-section"
+                ) &&
+                next.style.display !==
+                    "none"
             ) {
 
-                closeLightbox();
+                return next;
+
+            }
+
+
+            next =
+                next.nextElementSibling;
+
+        }
+
+
+        return null;
+
+    }
+
+
+    /* =====================================================
+       GO NEXT
+    ===================================================== */
+
+    function goNextSection(element) {
+
+        const section =
+            element &&
+            element.closest
+                ? element.closest(
+                    ".bx-section"
+                )
+                : null;
+
+
+        if (!section) return;
+
+
+        const next =
+            getNextSection(
+                section
+            );
+
+
+        if (!next) return;
+
+
+        setTimeout(
+            function () {
+
+                next.scrollIntoView({
+                    behavior:
+                        "smooth",
+                    block:
+                        "start"
+                });
+
+            },
+            500
+        );
+
+    }
+
+
+    /* =====================================================
+       VIDEO SETUP
+       MISSING VIDEO = AUTOMATIC SKIP
+    ===================================================== */
+
+    function setupVideo(
+        videoId,
+        path,
+        isFinal
+    ) {
+
+        const video =
+            document.getElementById(
+                videoId
+            );
+
+
+        if (!video) return;
+
+
+        const section =
+            video.closest(
+                ".bx-section"
+            );
+
+
+        /*
+         * No path
+         */
+
+        if (!hasPath(path)) {
+
+            console.warn(
+                "⚠️ Video path empty:",
+                videoId
+            );
+
+
+            skipVideoSection(
+                video,
+                "empty path"
+            );
+
+            return;
+
+        }
+
+
+        const source =
+            video.querySelector(
+                "source"
+            );
+
+
+        if (!source) {
+
+            skipVideoSection(
+                video,
+                "source element missing"
+            );
+
+            return;
+
+        }
+
+
+        /*
+         * Set source
+         */
+
+        source.src =
+            path;
+
+
+        video.load();
+
+
+        /*
+         * Prevent duplicate ending
+         */
+
+        let finished =
+            false;
+
+
+        /*
+         * VIDEO ERROR
+         */
+
+        video.addEventListener(
+            "error",
+            function () {
+
+                if (finished) return;
+
+
+                finished =
+                    true;
+
+
+                skipVideoSection(
+                    video,
+                    "video load error"
+                );
+
+            },
+            {
+                once: true
+            }
+        );
+
+
+        /*
+         * SOURCE ERROR
+         */
+
+        source.addEventListener(
+            "error",
+            function () {
+
+                if (finished) return;
+
+
+                finished =
+                    true;
+
+
+                skipVideoSection(
+                    video,
+                    "source error"
+                );
+
+            },
+            {
+                once: true
+            }
+        );
+
+
+        /*
+         * VIDEO ENDED
+         */
+
+        video.addEventListener(
+            "ended",
+            function () {
+
+                if (finished) return;
+
+
+                finished =
+                    true;
+
+
+                currentVideo =
+                    null;
+
+
+                if (isFinal) {
+
+                    launchFinalCelebration();
+
+                    return;
+
+                }
+
+
+                goNextSection(
+                    video
+                );
+
+            }
+        );
+
+
+        /*
+         * VIDEO PLAY
+         */
+
+        video.addEventListener(
+            "play",
+            function () {
+
+                currentVideo =
+                    video;
+
+
+                /*
+                 * Pause every other
+                 * birthday video
+                 */
+
+                const allVideos =
+                    experience.querySelectorAll(
+                        "video"
+                    );
+
+
+                allVideos.forEach(
+                    function (other) {
+
+                        if (
+                            other !==
+                            video
+                        ) {
+
+                            try {
+                                other.pause();
+                            } catch (e) {}
+
+                        }
+
+                    }
+                );
+
+            }
+        );
+
+
+        /*
+         * NETWORK STALL
+         *
+         * Temporary stall is allowed.
+         * Only permanently unavailable
+         * video gets skipped.
+         */
+
+        let stallTimer =
+            null;
+
+
+        video.addEventListener(
+            "stalled",
+            function () {
+
+                if (stallTimer) {
+                    clearTimeout(
+                        stallTimer
+                    );
+                }
+
+
+                stallTimer =
+                    setTimeout(
+                        function () {
+
+                            if (
+                                !finished &&
+                                video.readyState <
+                                    2
+                            ) {
+
+                                finished =
+                                    true;
+
+
+                                skipVideoSection(
+                                    video,
+                                    "network timeout"
+                                );
+
+                            }
+
+                        },
+                        7000
+                    );
+
+            }
+        );
+
+
+        /*
+         * CAN PLAY
+         */
+
+        video.addEventListener(
+            "canplay",
+            function () {
+
+                if (stallTimer) {
+
+                    clearTimeout(
+                        stallTimer
+                    );
+
+                    stallTimer =
+                        null;
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       SKIP VIDEO
+    ===================================================== */
+
+    function skipVideoSection(
+        video,
+        reason
+    ) {
+
+        console.warn(
+            "⏭️ Skipping video:",
+            reason
+        );
+
+
+        if (!video) return;
+
+
+        const section =
+            video.closest(
+                ".bx-section"
+            );
+
+
+        /*
+         * Stop video safely
+         */
+
+        try {
+
+            video.pause();
+
+            video.removeAttribute(
+                "src"
+            );
+
+            const source =
+                video.querySelector(
+                    "source"
+                );
+
+
+            if (source) {
+
+                source.removeAttribute(
+                    "src"
+                );
+
+            }
+
+
+            video.load();
+
+        } catch (e) {
+
+            console.warn(
+                "Video cleanup:",
+                e
+            );
+
+        }
+
+
+        /*
+         * Hide complete section
+         */
+
+        if (section) {
+
+            hideSection(
+                section
+            );
+
+
+            /*
+             * Continue automatically
+             */
+
+            const next =
+                getNextSection(
+                    section
+                );
+
+
+            if (next) {
+
+                setTimeout(
+                    function () {
+
+                        next.scrollIntoView({
+                            behavior:
+                                "smooth",
+                            block:
+                                "start"
+                        });
+
+                    },
+                    600
+                );
 
             }
 
         }
-    );
+
+    }
 
 
     /* =====================================================
-       PHOTO CLICK
+       MUSIC
+       MISSING MUSIC NEVER BREAKS PAGE
     ===================================================== */
 
-    memoryImages.forEach(
-        function (image) {
+    function setupMusic() {
 
-            image.addEventListener(
-                "click",
-                function () {
+        if (
+            !hasPath(C.music)
+        ) {
 
-                    if (
-                        !image.src
-                    ) {
+            console.warn(
+                "ℹ️ No music configured."
+            );
 
-                        return;
+            return;
+
+        }
+
+
+        music =
+            document.createElement(
+                "audio"
+            );
+
+
+        music.id =
+            "birthdayMusic";
+
+
+        music.src =
+            C.music;
+
+
+        music.loop =
+            true;
+
+
+        music.preload =
+            "auto";
+
+
+        music.volume =
+            typeof C.musicVolume ===
+            "number"
+                ? Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        C.musicVolume
+                    )
+                )
+                : 0.45;
+
+
+        /*
+         * MUSIC ERROR
+         */
+
+        music.addEventListener(
+            "error",
+            function () {
+
+                console.warn(
+                    "⚠️ Music unavailable. Continuing without music."
+                );
+
+            },
+            {
+                once: true
+            }
+        );
+
+
+        document.body.appendChild(
+            music
+        );
+
+
+        /*
+         * BUTTON
+         */
+
+        const button =
+            document.getElementById(
+                "bxMusic"
+            );
+
+
+        if (!button) return;
+
+
+        button.addEventListener(
+            "click",
+            function () {
+
+                if (!music) return;
+
+
+                if (
+                    music.paused
+                ) {
+
+                    playMusic();
+
+                } else {
+
+                    music.pause();
+
+                    button.textContent =
+                        "🔇";
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       SAFE MUSIC PLAY
+    ===================================================== */
+
+    function playMusic() {
+
+        if (!music) return;
+
+
+        const button =
+            document.getElementById(
+                "bxMusic"
+            );
+
+
+        try {
+
+            const promise =
+                music.play();
+
+
+            if (
+                promise &&
+                typeof promise.catch ===
+                    "function"
+            ) {
+
+                promise.catch(
+                    function () {
+
+                        /*
+                         * Browser autoplay
+                         * blocked.
+                         *
+                         * No error screen.
+                         */
+
+                        console.warn(
+                            "ℹ️ Music autoplay blocked. User can start it manually."
+                        );
 
                     }
+                );
+
+            }
 
 
-                    lightboxImage.src =
-                        image.src;
+            if (button) {
+
+                button.textContent =
+                    "🎵";
+
+            }
+
+        } catch (error) {
+
+            console.warn(
+                "Music play failed:",
+                error
+            );
+
+        }
+
+    }
 
 
-                    lightbox.classList.add(
-                        "show"
+    /* =====================================================
+       START BUTTON
+    ===================================================== */
+
+    function setupStartButton() {
+
+        const button =
+            document.getElementById(
+                "bxStart"
+            );
+
+
+        if (!button) return;
+
+
+        button.addEventListener(
+            "click",
+            function () {
+
+                playMusic();
+
+
+                const firstSection =
+                    experience.querySelector(
+                        '[data-section="hero"]'
                     );
+
+
+                if (firstSection) {
+
+                    firstSection.scrollIntoView({
+                        behavior:
+                            "smooth",
+                        block:
+                            "start"
+                    });
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       PROGRESS BAR
+    ===================================================== */
+
+    function setupProgress() {
+
+        if (!experience) return;
+
+
+        experience.addEventListener(
+            "scroll",
+            function () {
+
+                const max =
+                    experience.scrollHeight -
+                    experience.clientHeight;
+
+
+                const percent =
+                    max > 0
+                        ? (
+                            experience.scrollTop /
+                            max
+                        ) * 100
+                        : 0;
+
+
+                const bar =
+                    document.getElementById(
+                        "bxProgress"
+                    );
+
+
+                if (bar) {
+
+                    bar.style.width =
+                        percent + "%";
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       LIGHTBOX EVENTS
+    ===================================================== */
+
+    function setupLightbox() {
+
+        const close =
+            document.getElementById(
+                "bxClose"
+            );
+
+
+        if (close) {
+
+            close.addEventListener(
+                "click",
+                closeLightbox
+            );
+
+        }
+
+
+        const lightbox =
+            document.getElementById(
+                "bxLightbox"
+            );
+
+
+        if (lightbox) {
+
+            lightbox.addEventListener(
+                "click",
+                function (event) {
+
+                    if (
+                        event.target ===
+                        lightbox
+                    ) {
+
+                        closeLightbox();
+
+                    }
 
                 }
             );
 
         }
-    );
 
 
-    document.addEventListener(
-        "keydown",
-        function (event) {
-
-            if (
-                event.key === "Escape"
-            ) {
-
-                closeLightbox();
-
-            }
-
-        }
-    );
-
-
-    /* =====================================================
-       KEYBOARD CONTROL
-       Optional — user can still use arrows.
-    ===================================================== */
-
-    document.addEventListener(
-        "keydown",
-        function (event) {
-
-            if (
-                !experienceStarted ||
-                revealDone
-            ) {
-
-                return;
-
-            }
-
-
-            if (
-                event.key === "ArrowRight"
-            ) {
+        document.addEventListener(
+            "keydown",
+            function (event) {
 
                 if (
-                    currentScene <
-                    9
+                    event.key ===
+                    "Escape"
                 ) {
 
-                    activateScene(
-                        currentScene + 1,
-                        false
-                    );
+                    closeLightbox();
 
                 }
 
             }
+        );
 
-
-            if (
-                event.key === "ArrowLeft"
-            ) {
-
-                if (
-                    currentScene >
-                    1
-                ) {
-
-                    activateScene(
-                        currentScene - 1,
-                        false
-                    );
-
-                }
-
-            }
-
-        }
-    );
+    }
 
 
     /* =====================================================
-       INITIAL STATE
+       FINAL CELEBRATION
     ===================================================== */
 
-    updateProgress();
+    function launchFinalCelebration() {
+
+        if (
+            finalCelebrationStarted
+        ) {
+
+            return;
+
+        }
 
 
-    /*
-       Keep original page underneath.
-       Cinematic layer is above it.
-    */
-
-    document.body.style.overflow =
-        "hidden";
+        finalCelebrationStarted =
+            true;
 
 
-    console.log(
-        "❤️ Cinematic Birthday Auto Scene loaded for:",
-        C.name
-    );
+        console.log(
+            "🎆 Final birthday celebration!"
+        );
+
+
+        /*
+         * Create hearts
+         */
+
+        for (
+            let i = 0;
+            i < 90;
+            i++
+        ) {
+
+            const heart =
+                document.createElement(
+                    "div"
+                );
+
+
+            const symbols = [
+                "♥",
+                "❤",
+                "💗",
+                "✨",
+                "💖"
+            ];
+
+
+            heart.textContent =
+                symbols[
+                    Math.floor(
+                        Math.random() *
+                        symbols.length
+                    )
+                ];
+
+
+            heart.style.position =
+                "fixed";
+
+
+            heart.style.left =
+                Math.random() *
+                100 +
+                "vw";
+
+
+            heart.style.top =
+                "-40px";
+
+
+            heart.style.zIndex =
+                "100000";
+
+
+            heart.style.fontSize =
+                (
+                    15 +
+                    Math.random() *
+                    25
+                ) +
+                "px";
+
+
+            heart.style.color =
+                "#ff65b9";
+
+
+            heart.style.pointerEvents =
+                "none";
+
+
+            const duration =
+                3000 +
+                Math.random() *
+                3500;
+
+
+            heart.animate(
+                [
+                    {
+                        transform:
+                            "translateY(0) rotate(0deg)",
+                        opacity:
+                            1
+                    },
+                    {
+                        transform:
+                            "translateY(115vh) rotate(600deg)",
+                        opacity:
+                            0
+                    }
+                ],
+                {
+                    duration:
+                        duration,
+                    easing:
+                        "ease-out"
+                }
+            );
+
+
+            document.body.appendChild(
+                heart
+            );
+
+
+            setTimeout(
+                function () {
+
+                    if (
+                        heart &&
+                        heart.parentNode
+                    ) {
+
+                        heart.remove();
+
+                    }
+
+                },
+                duration + 500
+            );
+
+        }
+
+
+        /*
+         * Try to activate existing
+         * fireworks if available.
+         *
+         * We DO NOT depend on it.
+         */
+
+        try {
+
+            if (
+                typeof fireworks ===
+                "function"
+            ) {
+
+                fireworks();
+
+            }
+
+        } catch (e) {
+
+            console.log(
+                "Existing fireworks unavailable:",
+                e
+            );
+
+        }
+
+
+        /*
+         * Scroll to final section
+         */
+
+        const finalSection =
+            experience.querySelector(
+                '[data-section="final"]'
+            );
+
+
+        if (finalSection) {
+
+            setTimeout(
+                function () {
+
+                    finalSection.scrollIntoView({
+                        behavior:
+                            "smooth",
+                        block:
+                            "start"
+                    });
+
+                },
+                700
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       GLOBAL FALLBACK
+       If ANY non-critical part fails,
+       website still stays usable.
+    ===================================================== */
+
+    function safeRun(
+        functionName,
+        callback
+    ) {
+
+        try {
+
+            callback();
+
+        } catch (error) {
+
+            console.error(
+                "Birthday module error [" +
+                functionName +
+                "]:",
+                error
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       INITIALIZATION
+    ===================================================== */
+
+    function initialize() {
+
+        safeRun(
+            "createExperience",
+            createExperience
+        );
+
+
+        if (!experience) {
+
+            return;
+
+        }
+
+
+        safeRun(
+            "buildStory",
+            buildStory
+        );
+
+
+        safeRun(
+            "buildLetter",
+            buildLetter
+        );
+
+
+        safeRun(
+            "buildGallery",
+            buildGallery
+        );
+
+
+        safeRun(
+            "setupMusic",
+            setupMusic
+        );
+
+
+        safeRun(
+            "setupStartButton",
+            setupStartButton
+        );
+
+
+        safeRun(
+            "setupProgress",
+            setupProgress
+        );
+
+
+        safeRun(
+            "setupLightbox",
+            setupLightbox
+        );
+
+
+        /*
+         * Setup videos separately
+         */
+
+        safeRun(
+            "video1",
+            function () {
+
+                setupVideo(
+                    "bxVideo1",
+                    C.memoryVideo,
+                    false
+                );
+
+            }
+        );
+
+
+        safeRun(
+            "video2",
+            function () {
+
+                setupVideo(
+                    "bxVideo2",
+                    C.secondVideo,
+                    false
+                );
+
+            }
+        );
+
+
+        safeRun(
+            "finalVideo",
+            function () {
+
+                setupVideo(
+                    "bxFinalVideo",
+                    C.finalVideo,
+                    true
+                );
+
+            }
+        );
+
+
+        console.log(
+            "❤️ Cinematic Birthday Experience loaded for:",
+            C.name
+        );
+
+    }
+
+
+    /* =====================================================
+       DOM READY
+    ===================================================== */
+
+    if (
+        document.readyState ===
+        "loading"
+    ) {
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            initialize
+        );
+
+    } else {
+
+        initialize();
+
+    }
 
 
 })();
